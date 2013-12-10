@@ -189,6 +189,8 @@ type Container interface {
 	Remove(key string) error
 }
 
+// Given a JSON document `doc`, treat it like a document
+// conforming to RFC6902 and decode it.
 func DecodePatch(buf []byte) (Patch, error) {
 	var p Patch
 
@@ -462,6 +464,8 @@ func (p Patch) test(doc *partialDoc, op Operation) error {
 	return eTestFailed
 }
 
+// Mutate a JSON document according to the patch and return
+// the new document
 func (p Patch) Apply(doc []byte) ([]byte, error) {
 	pd := new(partialDoc)
 

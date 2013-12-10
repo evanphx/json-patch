@@ -16,4 +16,7 @@ Provides the abiilty to modify and test a JSON according to a
 
   `out, err := obj.Apply(doc)`
 
+* Bonus API: compare documents for structural equality
+
+  `jsonpatch.Equal(doca, docb)`
 
