@@ -1,30 +1,21 @@
 package jsonpatch
 
 import (
+  "bytes"
   "encoding/json"
   "testing"
 )
 
 func reformatJSON(j string) string {
-  var doc PartialDoc
+  buf := new(bytes.Buffer)
 
-  err := json.Unmarshal([]byte(j), &doc)
+  json.Indent(buf, []byte(j), "", "  ")
 
-  if err != nil {
-    panic(err)
-  }
-
-  b, err := json.MarshalIndent(doc, "", "  ")
-
-  if err != nil {
-    panic(err)
-  }
-
-  return string(b)
+  return buf.String()
 }
 
 func compareJSON(a, b string) bool {
-  return reformatJSON(a) == reformatJSON(b)
+  return Equal([]byte(a), []byte(b))
 }
 
 func applyPatch(doc, patch string) (string, error) {

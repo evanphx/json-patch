@@ -147,6 +147,10 @@ func (n *lazyNode) equal(o *lazyNode) bool {
     return true
   }
 
+  if o.which != eAry && !o.tryAry() {
+    return false
+  }
+
   if len(n.ary) != len(o.ary) {
     return false
   }
@@ -158,6 +162,19 @@ func (n *lazyNode) equal(o *lazyNode) bool {
   }
 
   return true
+}
+
+// Indicate if 2 JSON documents have the same structural equality
+func Equal(a, b []byte) bool {
+  ra := make(json.RawMessage, len(a))
+  copy(ra, a)
+  la := newLazyNode(&ra)
+
+  rb := make(json.RawMessage, len(b))
+  copy(rb, b)
+  lb := newLazyNode(&rb)
+
+  return la.equal(lb)
 }
 
 type Operation map[string]*json.RawMessage
