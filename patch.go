@@ -21,6 +21,18 @@ type lazyNode struct {
 	which int
 }
 
+type operation map[string]*json.RawMessage
+type Patch []operation
+
+type partialDoc map[string]*lazyNode
+type partialArray []*lazyNode
+
+type container interface {
+	get(key string) (*lazyNode, error)
+	set(key string, val *lazyNode) error
+	remove(key string) error
+}
+
 func newLazyNode(raw *json.RawMessage) *lazyNode {
 	return &lazyNode{raw: raw, doc: nil, ary: nil, which: eRaw}
 }
@@ -46,7 +58,7 @@ func (n *lazyNode) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (n *lazyNode) IntoDoc() (*partialDoc, error) {
+func (n *lazyNode) intoDoc() (*partialDoc, error) {
 	if n.which == eDoc {
 		return &n.doc, nil
 	}
@@ -61,7 +73,7 @@ func (n *lazyNode) IntoDoc() (*partialDoc, error) {
 	return &n.doc, nil
 }
 
-func (n *lazyNode) IntoAry() (*partialArray, error) {
+func (n *lazyNode) intoAry() (*partialArray, error) {
 	if n.which == eAry {
 		return &n.ary, nil
 	}
@@ -164,54 +176,7 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 	return true
 }
 
-// Indicate if 2 JSON documents have the same structural equality
-func Equal(a, b []byte) bool {
-	ra := make(json.RawMessage, len(a))
-	copy(ra, a)
-	la := newLazyNode(&ra)
-
-	rb := make(json.RawMessage, len(b))
-	copy(rb, b)
-	lb := newLazyNode(&rb)
-
-	return la.equal(lb)
-}
-
-type Operation map[string]*json.RawMessage
-type Patch []Operation
-
-type partialDoc map[string]*lazyNode
-type partialArray []*lazyNode
-
-type Container interface {
-	Get(key string) (*lazyNode, error)
-	Set(key string, val *lazyNode) error
-	Remove(key string) error
-}
-
-// Given a JSON document `doc`, treat it like a document
-// conforming to RFC6902 and decode it.
-func DecodePatch(buf []byte) (Patch, error) {
-	var p Patch
-
-	err := json.Unmarshal(buf, &p)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return p, nil
-}
-
-func (p Patch) Operation(i int) Operation {
-	if i < 0 || i >= len(p) {
-		return nil
-	}
-
-	return p[i]
-}
-
-func (o Operation) Kind() string {
+func (o operation) kind() string {
 	if obj, ok := o["op"]; ok {
 		var op string
 
@@ -227,7 +192,7 @@ func (o Operation) Kind() string {
 	return "unknown"
 }
 
-func (o Operation) Path() string {
+func (o operation) path() string {
 	if obj, ok := o["path"]; ok {
 		var op string
 
@@ -243,7 +208,7 @@ func (o Operation) Path() string {
 	return "unknown"
 }
 
-func (o Operation) From() string {
+func (o operation) from() string {
 	if obj, ok := o["from"]; ok {
 		var op string
 
@@ -259,7 +224,7 @@ func (o Operation) From() string {
 	return "unknown"
 }
 
-func (o Operation) Value() *lazyNode {
+func (o operation) value() *lazyNode {
 	if obj, ok := o["value"]; ok {
 		return newLazyNode(obj)
 	}
@@ -284,7 +249,7 @@ func isArray(buf []byte) bool {
 	return false
 }
 
-func findObject(doc *partialDoc, path string) (Container, string) {
+func findObject(doc *partialDoc, path string) (container, string) {
 	split := strings.Split(path, "/")
 
 	parts := split[1 : len(split)-1]
@@ -301,7 +266,7 @@ func findObject(doc *partialDoc, path string) (Container, string) {
 
 		if isArray(*next.raw) {
 			if idx == len(parts)-1 {
-				ary, err := next.IntoAry()
+				ary, err := next.intoAry()
 
 				if err != nil {
 					return nil, ""
@@ -312,7 +277,7 @@ func findObject(doc *partialDoc, path string) (Container, string) {
 				return nil, ""
 			}
 		} else {
-			doc, err = next.IntoDoc()
+			doc, err = next.intoDoc()
 
 			if err != nil {
 				return nil, ""
@@ -323,21 +288,21 @@ func findObject(doc *partialDoc, path string) (Container, string) {
 	return doc, key
 }
 
-func (d *partialDoc) Set(key string, val *lazyNode) error {
+func (d *partialDoc) set(key string, val *lazyNode) error {
 	(*d)[key] = val
 	return nil
 }
 
-func (d *partialDoc) Get(key string) (*lazyNode, error) {
+func (d *partialDoc) get(key string) (*lazyNode, error) {
 	return (*d)[key], nil
 }
 
-func (d *partialDoc) Remove(key string) error {
+func (d *partialDoc) remove(key string) error {
 	delete(*d, key)
 	return nil
 }
 
-func (d *partialArray) Set(key string, val *lazyNode) error {
+func (d *partialArray) set(key string, val *lazyNode) error {
 	if key == "-" {
 		*d = append(*d, val)
 		return nil
@@ -361,7 +326,7 @@ func (d *partialArray) Set(key string, val *lazyNode) error {
 	return nil
 }
 
-func (d *partialArray) Get(key string) (*lazyNode, error) {
+func (d *partialArray) get(key string) (*lazyNode, error) {
 	idx, err := strconv.Atoi(key)
 
 	if err != nil {
@@ -371,7 +336,7 @@ func (d *partialArray) Get(key string) (*lazyNode, error) {
 	return (*d)[idx], nil
 }
 
-func (d *partialArray) Remove(key string) error {
+func (d *partialArray) remove(key string) error {
 	idx, err := strconv.Atoi(key)
 
 	if err != nil {
@@ -390,8 +355,8 @@ func (d *partialArray) Remove(key string) error {
 
 }
 
-func (p Patch) add(doc *partialDoc, op Operation) error {
-	path := op.Path()
+func (p Patch) add(doc *partialDoc, op operation) error {
+	path := op.path()
 
 	con, key := findObject(doc, path)
 
@@ -399,69 +364,96 @@ func (p Patch) add(doc *partialDoc, op Operation) error {
 		return fmt.Errorf("Missing container: %s", path)
 	}
 
-	con.Set(key, op.Value())
+	con.set(key, op.value())
 
 	return nil
 }
 
-func (p Patch) remove(doc *partialDoc, op Operation) error {
-	path := op.Path()
+func (p Patch) remove(doc *partialDoc, op operation) error {
+	path := op.path()
 
 	con, key := findObject(doc, path)
 
-	return con.Remove(key)
+	return con.remove(key)
 }
 
-func (p Patch) replace(doc *partialDoc, op Operation) error {
-	path := op.Path()
+func (p Patch) replace(doc *partialDoc, op operation) error {
+	path := op.path()
 
 	con, key := findObject(doc, path)
 
-	con.Set(key, op.Value())
+	con.set(key, op.value())
 
 	return nil
 }
 
-func (p Patch) move(doc *partialDoc, op Operation) error {
-	from := op.From()
+func (p Patch) move(doc *partialDoc, op operation) error {
+	from := op.from()
 
 	con, key := findObject(doc, from)
 
-	val, err := con.Get(key)
+	val, err := con.get(key)
 
 	if err != nil {
 		return err
 	}
 
-	con.Remove(key)
+	con.remove(key)
 
-	path := op.Path()
+	path := op.path()
 
 	con, key = findObject(doc, path)
 
-	con.Set(key, val)
+	con.set(key, val)
 
 	return nil
 }
 
 var eTestFailed = fmt.Errorf("Testing value failed")
 
-func (p Patch) test(doc *partialDoc, op Operation) error {
-	path := op.Path()
+func (p Patch) test(doc *partialDoc, op operation) error {
+	path := op.path()
 
 	con, key := findObject(doc, path)
 
-	val, err := con.Get(key)
+	val, err := con.get(key)
 
 	if err != nil {
 		return err
 	}
 
-	if val.equal(op.Value()) {
+	if val.equal(op.value()) {
 		return nil
 	}
 
 	return eTestFailed
+}
+
+// Indicate if 2 JSON documents have the same structural equality
+func Equal(a, b []byte) bool {
+	ra := make(json.RawMessage, len(a))
+	copy(ra, a)
+	la := newLazyNode(&ra)
+
+	rb := make(json.RawMessage, len(b))
+	copy(rb, b)
+	lb := newLazyNode(&rb)
+
+	return la.equal(lb)
+}
+
+// Given a JSON document `doc`, treat it like a document
+// conforming to RFC6902 and decode it.
+func DecodePatch(buf []byte) (Patch, error) {
+	var p Patch
+
+	err := json.Unmarshal(buf, &p)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 // Mutate a JSON document according to the patch and return
@@ -478,7 +470,7 @@ func (p Patch) Apply(doc []byte) ([]byte, error) {
 	err = nil
 
 	for _, op := range p {
-		switch op.Kind() {
+		switch op.kind() {
 		case "add":
 			err = p.add(pd, op)
 		case "remove":
@@ -490,7 +482,7 @@ func (p Patch) Apply(doc []byte) ([]byte, error) {
 		case "test":
 			err = p.test(pd, op)
 		default:
-			err = fmt.Errorf("Unexpected kind: %s", op.Kind())
+			err = fmt.Errorf("Unexpected kind: %s", op.kind())
 		}
 
 		if err != nil {
