@@ -151,6 +151,10 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 				return false
 			}
 
+			if v == nil && ov == nil {
+				continue
+			}
+
 			if !v.equal(ov) {
 				return false
 			}
