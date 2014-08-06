@@ -270,7 +270,7 @@ func findObject(arg1 *partialDoc, path string) (container, string) {
 
 		next, ok := doc.get(part)
 
-		if ok != nil {
+		if next == nil || ok != nil {
 			return nil, ""
 		}
 
