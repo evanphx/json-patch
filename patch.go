@@ -274,12 +274,10 @@ func findObject(pd *partialDoc, path string) (container, string) {
 		}
 
 		if isArray(*next.raw) {
-			{
-				doc, err = next.intoAry()
+			doc, err = next.intoAry()
 
-				if err != nil {
-					return nil, ""
-				}
+			if err != nil {
+				return nil, ""
 			}
 		} else {
 			doc, err = next.intoDoc()
