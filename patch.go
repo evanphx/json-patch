@@ -70,7 +70,6 @@ func (n *lazyNode) intoDoc() (*partialDoc, error) {
 	}
 
 	n.which = eDoc
-
 	return &n.doc, nil
 }
 
@@ -255,8 +254,8 @@ Loop:
 	return false
 }
 
-func findObject(arg1 *partialDoc, path string) (container, string) {
-	doc := container(arg1)
+func findObject(pd *partialDoc, path string) (container, string) {
+	doc := container(pd)
 
 	split := strings.Split(path, "/")
 
