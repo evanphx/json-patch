@@ -237,6 +237,7 @@ func (o operation) value() *lazyNode {
 }
 
 func isArray(buf []byte) bool {
+Loop:
 	for _, c := range buf {
 		switch c {
 		case ' ':
@@ -246,14 +247,16 @@ func isArray(buf []byte) bool {
 		case '[':
 			return true
 		default:
-			break
+			break Loop
 		}
 	}
 
 	return false
 }
 
-func findObject(doc *partialDoc, path string) (container, string) {
+func findObject(pd *partialDoc, path string) (container, string) {
+	doc := container(pd)
+
 	split := strings.Split(path, "/")
 
 	parts := split[1 : len(split)-1]
@@ -262,22 +265,18 @@ func findObject(doc *partialDoc, path string) (container, string) {
 
 	var err error
 
-	for idx, part := range parts {
-		next, ok := (*doc)[part]
-		if !ok {
+	for _, part := range parts {
+
+		next, ok := doc.get(part)
+
+		if next == nil || ok != nil {
 			return nil, ""
 		}
 
 		if isArray(*next.raw) {
-			if idx == len(parts)-1 {
-				ary, err := next.intoAry()
+			doc, err = next.intoAry()
 
-				if err != nil {
-					return nil, ""
-				}
-
-				return ary, key
-			} else {
+			if err != nil {
 				return nil, ""
 			}
 		} else {
