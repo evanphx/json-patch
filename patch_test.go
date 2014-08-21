@@ -3,6 +3,7 @@ package jsonpatch
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"testing"
 )
 
@@ -146,6 +147,7 @@ func TestAllCases(t *testing.T) {
 type TestCase struct {
 	doc, patch string
 	result     bool
+	failedPath string
 }
 
 var TestCases = []TestCase{
@@ -159,11 +161,25 @@ var TestCases = []TestCase{
        { "op": "test", "path": "/foo/1", "value": 2 }
      ]`,
 		true,
+		"",
 	},
 	{
 		`{ "baz": "qux" }`,
 		`[ { "op": "test", "path": "/baz", "value": "bar" } ]`,
 		false,
+		"/baz",
+	},
+	{
+		`{
+       "baz": "qux",
+       "foo": ["a", 2, "c"]
+     }`,
+		`[
+       { "op": "test", "path": "/baz", "value": "qux" },
+       { "op": "test", "path": "/foo/1", "value": "c" }
+     ]`,
+		false,
+		"/foo/1",
 	},
 }
 
@@ -175,6 +191,11 @@ func TestAllTest(t *testing.T) {
 			t.Errorf("Testing failed when it should have passed: %s", err)
 		} else if !c.result && err == nil {
 			t.Errorf("Testing passed when it should have faild", err)
+		} else if !c.result {
+			expected := fmt.Sprintf("Testing value %s failed", c.failedPath)
+			if err.Error() != expected {
+				t.Errorf("Testing failed as expected but invalid message: expected [%s], got [%s]", expected, err)
+			}
 		}
 	}
 }

@@ -412,8 +412,6 @@ func (p Patch) move(doc *partialDoc, op operation) error {
 	return nil
 }
 
-var eTestFailed = fmt.Errorf("Testing value failed")
-
 func (p Patch) test(doc *partialDoc, op operation) error {
 	path := op.path()
 
@@ -429,7 +427,7 @@ func (p Patch) test(doc *partialDoc, op operation) error {
 		return nil
 	}
 
-	return eTestFailed
+	return fmt.Errorf("Testing value %s failed", path)
 }
 
 // Indicate if 2 JSON documents have the same structural equality
