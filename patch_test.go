@@ -153,13 +153,13 @@ type TestCase struct {
 var TestCases = []TestCase{
 	{
 		`{
-       "baz": "qux",
-       "foo": [ "a", 2, "c" ]
-     }`,
+			"baz": "qux",
+			"foo": [ "a", 2, "c" ]
+		}`,
 		`[
-       { "op": "test", "path": "/baz", "value": "qux" },
-       { "op": "test", "path": "/foo/1", "value": 2 }
-     ]`,
+			{ "op": "test", "path": "/baz", "value": "qux" },
+			{ "op": "test", "path": "/foo/1", "value": 2 }
+		]`,
 		true,
 		"",
 	},
@@ -171,13 +171,13 @@ var TestCases = []TestCase{
 	},
 	{
 		`{
-       "baz": "qux",
-       "foo": ["a", 2, "c"]
-     }`,
+			"baz": "qux",
+			"foo": ["a", 2, "c"]
+		}`,
 		`[
-       { "op": "test", "path": "/baz", "value": "qux" },
-       { "op": "test", "path": "/foo/1", "value": "c" }
-     ]`,
+			{ "op": "test", "path": "/baz", "value": "qux" },
+			{ "op": "test", "path": "/foo/1", "value": "c" }
+		]`,
 		false,
 		"/foo/1",
 	},
