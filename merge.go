@@ -151,11 +151,11 @@ func CreateMergePatch(a, b []byte) ([]byte, error) {
 	bI := make(map[string]interface{})
 	err := json.Unmarshal(a, &aI)
 	if err != nil {
-		return nil, err
+		return nil, eBadJSONDoc
 	}
 	err = json.Unmarshal(b, &bI)
 	if err != nil {
-		return nil, err
+		return nil, eBadJSONDoc
 	}
 	dest, err := getDiff(aI, bI)
 	if err != nil {
