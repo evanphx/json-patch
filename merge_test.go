@@ -259,6 +259,22 @@ func TestMergeEmptyArray(t *testing.T) {
 	}
 }
 
+func TestMergeObjArray(t *testing.T) {
+	doc := `{ "array": [ {"a": {"b": 2}}, {"a": {"b": 3}} ]}`
+	exp := `{}`
+
+	res, err := CreateMergePatch([]byte(doc), []byte(doc))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	// We cannot use "compareJSON", since Equals does not report a difference if the value is null
+	if exp != string(res) {
+		t.Fatalf("Array was not empty, was " + string(res))
+	}
+}
+
 func TestMergeComplexMatch(t *testing.T) {
 	doc := `{"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4], "nested": {"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4]} }`
 	empty := `{}`

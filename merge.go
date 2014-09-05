@@ -216,6 +216,7 @@ func matchesValue(av, bv interface{}) bool {
 				return false
 			}
 		}
+		return true
 	}
 	return false
 }
