@@ -91,7 +91,7 @@ func (n *lazyNode) intoAry() (*partialArray, error) {
 }
 
 func (n *lazyNode) compact() []byte {
-	buf := new(bytes.Buffer)
+	buf := &bytes.Buffer{}
 
 	err := json.Compact(buf, *n.raw)
 
@@ -461,7 +461,7 @@ func DecodePatch(buf []byte) (Patch, error) {
 // Apply mutates a JSON document according to the patch, and returns the new
 // document.
 func (p Patch) Apply(doc []byte) ([]byte, error) {
-	pd := new(partialDoc)
+	pd := &partialDoc{}
 
 	err := json.Unmarshal(doc, pd)
 
