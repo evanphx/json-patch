@@ -106,7 +106,7 @@ var rfcTests = `
 
      {"a":"b", "b":"c"}  |   {"a":null}   |  {"b":"c"}
      {"a": [{"b":"c"}]}  |   {"a": [1]}   |  {"a": [1]}
-      
+
      [1,2]       |   {"a":"b","c":null}   |  {"a":"b"}
 
      {"a": { "b": "c" } } | { "a": { "b": "d", "c": null } } | { "a": { "b": "d" } }
@@ -165,7 +165,7 @@ func TestMergePatchFailRFCCases(t *testing.T) {
 
 		out, err := MergePatch([]byte(doc), []byte(pat))
 
-		if err != eBadJSONPatch {
+		if err != errBadJSONPatch {
 			t.Errorf("error not returned properly: %s, %s", err, string(out))
 		}
 	}

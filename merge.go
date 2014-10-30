@@ -83,32 +83,33 @@ func pruneAryNulls(ary *partialArray) *partialArray {
 	return ary
 }
 
-var eBadJSONDoc = fmt.Errorf("Invalid JSON Document")
-var eBadJSONPatch = fmt.Errorf("Invalid JSON Patch")
+var errBadJSONDoc = fmt.Errorf("Invalid JSON Document")
+var errBadJSONPatch = fmt.Errorf("Invalid JSON Patch")
 
+// MergePatch merges the patchData into the docData.
 func MergePatch(docData, patchData []byte) ([]byte, error) {
-	doc := new(partialDoc)
+	doc := &partialDoc{}
 
 	docErr := json.Unmarshal(docData, doc)
 
-	patch := new(partialDoc)
+	patch := &partialDoc{}
 
 	patchErr := json.Unmarshal(patchData, patch)
 
 	if _, ok := docErr.(*json.SyntaxError); ok {
-		return nil, eBadJSONDoc
+		return nil, errBadJSONDoc
 	}
 
 	if _, ok := patchErr.(*json.SyntaxError); ok {
-		return nil, eBadJSONPatch
+		return nil, errBadJSONPatch
 	}
 
 	if docErr == nil && *doc == nil {
-		return nil, eBadJSONDoc
+		return nil, errBadJSONDoc
 	}
 
 	if patchErr == nil && *patch == nil {
-		return nil, eBadJSONPatch
+		return nil, errBadJSONPatch
 	}
 
 	if docErr != nil || patchErr != nil {
@@ -116,11 +117,11 @@ func MergePatch(docData, patchData []byte) ([]byte, error) {
 		if patchErr == nil {
 			doc = pruneDocNulls(patch)
 		} else {
-			patchAry := new(partialArray)
+			patchAry := &partialArray{}
 			patchErr = json.Unmarshal(patchData, patchAry)
 
 			if patchErr != nil {
-				return nil, eBadJSONPatch
+				return nil, errBadJSONPatch
 			}
 
 			pruneAryNulls(patchAry)
@@ -128,7 +129,7 @@ func MergePatch(docData, patchData []byte) ([]byte, error) {
 			out, patchErr := json.Marshal(patchAry)
 
 			if patchErr != nil {
-				return nil, eBadJSONPatch
+				return nil, errBadJSONPatch
 			}
 
 			return out, nil
@@ -147,15 +148,15 @@ func MergePatch(docData, patchData []byte) ([]byte, error) {
 //
 // An error will be returned if any of the two documents are invalid.
 func CreateMergePatch(a, b []byte) ([]byte, error) {
-	aI := make(map[string]interface{})
-	bI := make(map[string]interface{})
+	aI := map[string]interface{}{}
+	bI := map[string]interface{}{}
 	err := json.Unmarshal(a, &aI)
 	if err != nil {
-		return nil, eBadJSONDoc
+		return nil, errBadJSONDoc
 	}
 	err = json.Unmarshal(b, &bI)
 	if err != nil {
-		return nil, eBadJSONDoc
+		return nil, errBadJSONDoc
 	}
 	dest, err := getDiff(aI, bI)
 	if err != nil {
@@ -223,7 +224,7 @@ func matchesValue(av, bv interface{}) bool {
 
 // getDiff returns the (recursive) difference between a and b as a map[string]interface{}.
 func getDiff(a, b map[string]interface{}) (map[string]interface{}, error) {
-	into := make(map[string]interface{})
+	into := map[string]interface{}{}
 	for key, bv := range b {
 		av, ok := a[key]
 		// value was added

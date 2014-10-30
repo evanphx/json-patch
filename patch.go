@@ -10,8 +10,8 @@ import (
 
 const (
 	eRaw = iota
-	eDoc = iota
-	eAry = iota
+	eDoc
+	eAry
 )
 
 type lazyNode struct {
@@ -22,6 +22,8 @@ type lazyNode struct {
 }
 
 type operation map[string]*json.RawMessage
+
+// Patch is an ordered collection of operations.
 type Patch []operation
 
 type partialDoc map[string]*lazyNode
@@ -89,7 +91,7 @@ func (n *lazyNode) intoAry() (*partialArray, error) {
 }
 
 func (n *lazyNode) compact() []byte {
-	buf := new(bytes.Buffer)
+	buf := &bytes.Buffer{}
 
 	err := json.Compact(buf, *n.raw)
 
@@ -430,7 +432,7 @@ func (p Patch) test(doc *partialDoc, op operation) error {
 	return fmt.Errorf("Testing value %s failed", path)
 }
 
-// Indicate if 2 JSON documents have the same structural equality
+// Equal indicates if 2 JSON documents have the same structural equality.
 func Equal(a, b []byte) bool {
 	ra := make(json.RawMessage, len(a))
 	copy(ra, a)
@@ -443,8 +445,7 @@ func Equal(a, b []byte) bool {
 	return la.equal(lb)
 }
 
-// Given a JSON document `doc`, treat it like a document
-// conforming to RFC6902 and decode it.
+// DecodePatch decodes the passed JSON document as an RFC 6902 patch.
 func DecodePatch(buf []byte) (Patch, error) {
 	var p Patch
 
@@ -457,10 +458,10 @@ func DecodePatch(buf []byte) (Patch, error) {
 	return p, nil
 }
 
-// Mutate a JSON document according to the patch and return
-// the new document
+// Apply mutates a JSON document according to the patch, and returns the new
+// document.
 func (p Patch) Apply(doc []byte) ([]byte, error) {
-	pd := new(partialDoc)
+	pd := &partialDoc{}
 
 	err := json.Unmarshal(doc, pd)
 
