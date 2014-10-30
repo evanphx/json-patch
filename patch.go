@@ -10,8 +10,8 @@ import (
 
 const (
 	eRaw = iota
-	eDoc = iota
-	eAry = iota
+	eDoc
+	eAry
 )
 
 type lazyNode struct {
