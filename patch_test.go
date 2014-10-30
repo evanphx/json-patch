@@ -190,7 +190,7 @@ func TestAllTest(t *testing.T) {
 		if c.result && err != nil {
 			t.Errorf("Testing failed when it should have passed: %s", err)
 		} else if !c.result && err == nil {
-			t.Errorf("Testing passed when it should have faild", err)
+			t.Errorf("Testing passed when it should have faild: %s", err)
 		} else if !c.result {
 			expected := fmt.Sprintf("Testing value %s failed", c.failedPath)
 			if err.Error() != expected {
