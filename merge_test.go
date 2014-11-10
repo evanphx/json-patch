@@ -106,7 +106,7 @@ var rfcTests = `
 
      {"a":"b", "b":"c"}  |   {"a":null}   |  {"b":"c"}
      {"a": [{"b":"c"}]}  |   {"a": [1]}   |  {"a": [1]}
-      
+
      [1,2]       |   {"a":"b","c":null}   |  {"a":"b"}
 
      {"a": { "b": "c" } } | { "a": { "b": "d", "c": null } } | { "a": { "b": "d" } }
@@ -165,9 +165,163 @@ func TestMergePatchFailRFCCases(t *testing.T) {
 
 		out, err := MergePatch([]byte(doc), []byte(pat))
 
-		if err != eBadJSONPatch {
+		if err != errBadJSONPatch {
 			t.Errorf("error not returned properly: %s, %s", err, string(out))
 		}
 	}
 
+}
+
+func TestMergeReplaceKey(t *testing.T) {
+	doc := `{ "title": "hello", "nested": {"one": 1, "two": 2} }`
+	pat := `{ "title": "goodbye", "nested": {"one": 2, "two": 2}  }`
+
+	exp := `{ "title": "goodbye", "nested": {"one": 2}  }`
+
+	res, err := CreateMergePatch([]byte(doc), []byte(pat))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	if !compareJSON(exp, string(res)) {
+		t.Fatalf("Key was not replaced")
+	}
+}
+
+func TestMergeGetArray(t *testing.T) {
+	doc := `{ "title": "hello", "array": ["one", "two"], "notmatch": [1, 2, 3] }`
+	pat := `{ "title": "hello", "array": ["one", "two", "three"], "notmatch": [1, 2, 3]  }`
+
+	exp := `{ "array": ["one", "two", "three"] }`
+
+	res, err := CreateMergePatch([]byte(doc), []byte(pat))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	if !compareJSON(exp, string(res)) {
+		t.Fatalf("Array was not added")
+	}
+}
+
+func TestMergeGetObjArray(t *testing.T) {
+	doc := `{ "title": "hello", "array": [{"banana": true}, {"evil": false}], "notmatch": [{"one":1}, {"two":2}, {"three":3}] }`
+	pat := `{ "title": "hello", "array": [{"banana": false}, {"evil": true}], "notmatch": [{"one":1}, {"two":2}, {"three":3}] }`
+
+	exp := `{  "array": [{"banana": false}, {"evil": true}] }`
+
+	res, err := CreateMergePatch([]byte(doc), []byte(pat))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	if !compareJSON(exp, string(res)) {
+		t.Fatalf("Object array was not added")
+	}
+}
+
+func TestMergeDeleteKey(t *testing.T) {
+	doc := `{ "title": "hello", "nested": {"one": 1, "two": 2} }`
+	pat := `{ "title": "hello", "nested": {"one": 1}  }`
+
+	exp := `{"nested":{"two":null}}`
+
+	res, err := CreateMergePatch([]byte(doc), []byte(pat))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	// We cannot use "compareJSON", since Equals does not report a difference if the value is null
+	if exp != string(res) {
+		t.Fatalf("Key was not removed")
+	}
+}
+
+func TestMergeEmptyArray(t *testing.T) {
+	doc := `{ "array": null }`
+	pat := `{ "array": [] }`
+
+	exp := `{"array":[]}`
+
+	res, err := CreateMergePatch([]byte(doc), []byte(pat))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	// We cannot use "compareJSON", since Equals does not report a difference if the value is null
+	if exp != string(res) {
+		t.Fatalf("Key was not removed")
+	}
+}
+
+func TestMergeObjArray(t *testing.T) {
+	doc := `{ "array": [ {"a": {"b": 2}}, {"a": {"b": 3}} ]}`
+	exp := `{}`
+
+	res, err := CreateMergePatch([]byte(doc), []byte(doc))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	// We cannot use "compareJSON", since Equals does not report a difference if the value is null
+	if exp != string(res) {
+		t.Fatalf("Array was not empty, was " + string(res))
+	}
+}
+
+func TestMergeComplexMatch(t *testing.T) {
+	doc := `{"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4], "nested": {"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4]} }`
+	empty := `{}`
+	res, err := CreateMergePatch([]byte(doc), []byte(doc))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	// We cannot use "compareJSON", since Equals does not report a difference if the value is null
+	if empty != string(res) {
+		t.Fatalf("Did not get empty result, was:%s", string(res))
+	}
+}
+
+func TestMergeComplexAddAll(t *testing.T) {
+	doc := `{"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4], "nested": {"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4]} }`
+	empty := `{}`
+	res, err := CreateMergePatch([]byte(empty), []byte(doc))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	if !compareJSON(doc, string(res)) {
+		t.Fatalf("Did not get everything as, it was:\n%s", string(res))
+	}
+}
+
+func TestMergeComplexRemoveAll(t *testing.T) {
+	doc := `{"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4], "nested": {"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4]} }`
+	exp := `{"a":null,"f":null,"hello":null,"i":null,"n":null,"nested":null,"pi":null,"t":null}`
+	empty := `{}`
+	res, err := CreateMergePatch([]byte(doc), []byte(empty))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	if exp != string(res) {
+		t.Fatalf("Did not get result, was:%s", string(res))
+	}
+
+	// FIXME: Crashes if using compareJSON like this:
+	/*
+		if !compareJSON(doc, string(res)) {
+			t.Fatalf("Did not get everything as, it was:\n%s", string(res))
+		}
+	*/
 }

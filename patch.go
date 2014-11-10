@@ -10,8 +10,8 @@ import (
 
 const (
 	eRaw = iota
-	eDoc = iota
-	eAry = iota
+	eDoc
+	eAry
 )
 
 type lazyNode struct {
@@ -22,6 +22,8 @@ type lazyNode struct {
 }
 
 type operation map[string]*json.RawMessage
+
+// Patch is an ordered collection of operations.
 type Patch []operation
 
 type partialDoc map[string]*lazyNode
@@ -89,7 +91,7 @@ func (n *lazyNode) intoAry() (*partialArray, error) {
 }
 
 func (n *lazyNode) compact() []byte {
-	buf := new(bytes.Buffer)
+	buf := &bytes.Buffer{}
 
 	err := json.Compact(buf, *n.raw)
 
@@ -237,6 +239,7 @@ func (o operation) value() *lazyNode {
 }
 
 func isArray(buf []byte) bool {
+Loop:
 	for _, c := range buf {
 		switch c {
 		case ' ':
@@ -246,14 +249,16 @@ func isArray(buf []byte) bool {
 		case '[':
 			return true
 		default:
-			break
+			break Loop
 		}
 	}
 
 	return false
 }
 
-func findObject(doc *partialDoc, path string) (container, string) {
+func findObject(pd *partialDoc, path string) (container, string) {
+	doc := container(pd)
+
 	split := strings.Split(path, "/")
 
 	parts := split[1 : len(split)-1]
@@ -262,22 +267,18 @@ func findObject(doc *partialDoc, path string) (container, string) {
 
 	var err error
 
-	for idx, part := range parts {
-		next, ok := (*doc)[part]
-		if !ok {
+	for _, part := range parts {
+
+		next, ok := doc.get(part)
+
+		if next == nil || ok != nil {
 			return nil, ""
 		}
 
 		if isArray(*next.raw) {
-			if idx == len(parts)-1 {
-				ary, err := next.intoAry()
+			doc, err = next.intoAry()
 
-				if err != nil {
-					return nil, ""
-				}
-
-				return ary, key
-			} else {
+			if err != nil {
 				return nil, ""
 			}
 		} else {
@@ -413,8 +414,6 @@ func (p Patch) move(doc *partialDoc, op operation) error {
 	return nil
 }
 
-var eTestFailed = fmt.Errorf("Testing value failed")
-
 func (p Patch) test(doc *partialDoc, op operation) error {
 	path := op.path()
 
@@ -430,10 +429,10 @@ func (p Patch) test(doc *partialDoc, op operation) error {
 		return nil
 	}
 
-	return eTestFailed
+	return fmt.Errorf("Testing value %s failed", path)
 }
 
-// Indicate if 2 JSON documents have the same structural equality
+// Equal indicates if 2 JSON documents have the same structural equality.
 func Equal(a, b []byte) bool {
 	ra := make(json.RawMessage, len(a))
 	copy(ra, a)
@@ -446,8 +445,7 @@ func Equal(a, b []byte) bool {
 	return la.equal(lb)
 }
 
-// Given a JSON document `doc`, treat it like a document
-// conforming to RFC6902 and decode it.
+// DecodePatch decodes the passed JSON document as an RFC 6902 patch.
 func DecodePatch(buf []byte) (Patch, error) {
 	var p Patch
 
@@ -460,10 +458,10 @@ func DecodePatch(buf []byte) (Patch, error) {
 	return p, nil
 }
 
-// Mutate a JSON document according to the patch and return
-// the new document
+// Apply mutates a JSON document according to the patch, and returns the new
+// document.
 func (p Patch) Apply(doc []byte) ([]byte, error) {
-	pd := new(partialDoc)
+	pd := &partialDoc{}
 
 	err := json.Unmarshal(doc, pd)
 
