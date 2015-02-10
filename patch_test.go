@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -16,7 +17,14 @@ func reformatJSON(j string) string {
 }
 
 func compareJSON(a, b string) bool {
-	return Equal([]byte(a), []byte(b))
+	// return Equal([]byte(a), []byte(b))
+
+	var obj_a, obj_b map[string]interface{}
+	json.Unmarshal([]byte(a), &obj_a)
+	json.Unmarshal([]byte(b), &obj_b)
+
+	// fmt.Printf("Comparing %#v\nagainst %#v\n", obj_a, obj_b)
+	return reflect.DeepEqual(obj_a, obj_b)
 }
 
 func applyPatch(doc, patch string) (string, error) {
@@ -108,10 +116,22 @@ var Cases = []Case{
 		`[ { "op": "add", "path": "/foo/-", "value": ["abc", "def"] } ]`,
 		`{ "foo": ["bar", ["abc", "def"]] }`,
 	},
+	{
+		`{ "foo": "bar", "qux": { "baz": 1, "bar": null } }`,
+		`[ { "op": "remove", "path": "/qux/bar" } ]`,
+		`{ "foo": "bar", "qux": { "baz": 1 } }`,
+	},
 }
 
 type BadCase struct {
 	doc, patch string
+}
+
+var MutationTestCases = []BadCase{
+	{
+		`{ "foo": "bar", "qux": { "baz": 1, "bar": null } }`,
+		`[ { "op": "remove", "path": "/qux/bar" } ]`,
+	},
 }
 
 var BadCases = []BadCase{
@@ -132,6 +152,19 @@ func TestAllCases(t *testing.T) {
 		if !compareJSON(out, c.result) {
 			t.Errorf("Patch did not apply. Expected:\n%s\n\nActual:\n%s",
 				reformatJSON(c.result), reformatJSON(out))
+		}
+	}
+
+	for _, c := range MutationTestCases {
+		out, err := applyPatch(c.doc, c.patch)
+
+		if err != nil {
+			t.Errorf("Unable to apply patch: %s", err)
+		}
+
+		if compareJSON(out, c.doc) {
+			t.Errorf("Patch did not apply. Original:\n%s\n\nPatched:\n%s",
+				reformatJSON(c.doc), reformatJSON(out))
 		}
 	}
 
