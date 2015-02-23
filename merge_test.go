@@ -94,53 +94,35 @@ func TestMergePatchReturnsErrorOnBadJSON(t *testing.T) {
 	}
 }
 
-var rfcTests = `
-     {"a":"b"}   |   {"a":"c"}    |  {"a":"c"}
-     {"a":"b"}   |   {"b":"c"}    |  {"a":"b", "b":"c"}
-     {"a":"b"}   |   {"a":null}   |  {}
-     {"a":["b"]} |   {"a":"c"}    |  {"a":"c"}
-     {"a":"c"}   |   {"a":["b"]}  |  {"a":["b"]}
-     ["a","b"]   |   ["c","d"]    |  ["c","d"]
-     {"a":"b"}   |   ["c"]        |  ["c"]
-     {"e":null}  |   {"a":1}      |  {"e":null, "a":1}
-
-     {"a":"b", "b":"c"}  |   {"a":null}   |  {"b":"c"}
-     {"a": [{"b":"c"}]}  |   {"a": [1]}   |  {"a": [1]}
-
-     [1,2]       |   {"a":"b","c":null}   |  {"a":"b"}
-
-     {"a": { "b": "c" } } | { "a": { "b": "d", "c": null } } | { "a": { "b": "d" } }
-
-     {}          | {"a": { "bb": { "ccc": null }}} | {"a": { "bb": {}}}
-
-     {"a":"foo"} | {"b": [3, null, {"x": null}]} | {"a":"foo", "b": [3, {}]}
-
-
-     [1,2]       | [1,null,3]     | [1,3]
-
-     [1,2]       | [1,null,2]     | [1,2]
-
-     {"a":"b"}   | {"a": [ {"z":1, "b":null}]} | {"a": [ {"z":1}]}
-`
+var rfcTests = []struct {
+	target   string
+	patch    string
+	expected string
+}{
+	// test cases from https://tools.ietf.org/html/rfc7386#appendix-A
+	{target: `{"a":"b"}`, patch: `{"a":"c"}`, expected: `{"a":"c"}`},
+	{target: `{"a":"b"}`, patch: `{"b":"c"}`, expected: `{"a":"b","b":"c"}`},
+	{target: `{"a":"b"}`, patch: `{"a":null}`, expected: `{}`},
+	{target: `{"a":"b","b":"c"}`, patch: `{"a":null}`, expected: `{"b":"c"}`},
+	{target: `{"a":["b"]}`, patch: `{"a":"c"}`, expected: `{"a":"c"}`},
+	{target: `{"a":"c"}`, patch: `{"a":["b"]}`, expected: `{"a":["b"]}`},
+	{target: `{"a":{"b": "c"}}`, patch: `{"a": {"b": "d","c": null}}`, expected: `{"a":{"b":"d"}}`},
+	{target: `{"a":[{"b":"c"}]}`, patch: `{"a":[1]}`, expected: `{"a":[1]}`},
+	{target: `["a","b"]`, patch: `["c","d"]`, expected: `["c","d"]`},
+	{target: `{"a":"b"}`, patch: `["c"]`, expected: `["c"]`},
+	// {target: `{"a":"foo"}`, patch: `null`, expected: `null`},
+	// {target: `{"a":"foo"}`, patch: `"bar"`, expected: `"bar"`},
+	{target: `{"e":null}`, patch: `{"a":1}`, expected: `{"a":1,"e":null}`},
+	{target: `[1,2]`, patch: `{"a":"b","c":null}`, expected: `{"a":"b"}`},
+	{target: `{}`, patch: `{"a":{"bb":{"ccc":null}}}`, expected: `{"a":{"bb":{}}}`},
+}
 
 func TestMergePatchRFCCases(t *testing.T) {
-	tests := strings.Split(rfcTests, "\n")
+	for i, c := range rfcTests {
+		out := mergePatch(c.target, c.patch)
 
-	for _, c := range tests {
-		if strings.TrimSpace(c) == "" {
-			continue
-		}
-
-		parts := strings.SplitN(c, "|", 3)
-
-		doc := strings.TrimSpace(parts[0])
-		pat := strings.TrimSpace(parts[1])
-		res := strings.TrimSpace(parts[2])
-
-		out := mergePatch(doc, pat)
-
-		if !compareJSON(out, res) {
-			t.Errorf("patch '%s' did not apply properly to '%s': '%s'", pat, doc, out)
+		if !compareJSON(out, c.expected) {
+			t.Errorf("case[%d], patch '%s' did not apply properly to '%s'. expected:\n'%s'\ngot:\n'%s'", i, c.patch, c.target, c.expected, out)
 		}
 	}
 }
