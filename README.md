@@ -5,6 +5,9 @@ Provides the abiilty to modify and test a JSON according to a
 
 *Version*: **1.0**
 
+[![GoDoc](https://godoc.org/github.com/evanphx/json-patch?status.svg)](http://godoc.org/github.com/evanphx/json-patch)
+
+[![Build Status](https://travis-ci.org/evanphx/json-patch.svg?branch=RFC7386)](https://travis-ci.org/evanphx/json-patch)
 
 ### API Usage
 
