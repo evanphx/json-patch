@@ -26,6 +26,7 @@ func merge(cur, patch *lazyNode) *lazyNode {
 }
 
 func mergeDocs(doc, patch *partialDoc) {
+	pruneDocNulls(doc)
 	for k, v := range *patch {
 		if v == nil {
 			delete(*doc, k)
