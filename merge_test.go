@@ -39,6 +39,19 @@ func TestMergePatchIgnoresOtherValues(t *testing.T) {
 	}
 }
 
+func TestMergePatchNilDoc(t *testing.T) {
+	doc := `{ "title": null }`
+	pat := `{ "title": {"foo": "bar"} }`
+
+	res := mergePatch(doc, pat)
+
+	exp := `{ "title": {"foo": "bar"} }`
+
+	if !compareJSON(exp, res) {
+		t.Fatalf("Key was not replaced")
+	}
+}
+
 func TestMergePatchRecursesIntoObjects(t *testing.T) {
 	doc := `{ "person": { "title": "hello", "age": 18 } }`
 	pat := `{ "person": { "title": "goodbye" } }`
