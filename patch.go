@@ -425,6 +425,14 @@ func (p Patch) test(doc *partialDoc, op operation) error {
 		return err
 	}
 
+	if val == nil {
+		if op.value().raw == nil {
+			return nil
+		} else {
+			return fmt.Errorf("Testing value %s failed", path)
+		}
+	}
+
 	if val.equal(op.value()) {
 		return nil
 	}
