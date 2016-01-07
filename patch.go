@@ -366,7 +366,7 @@ func (p Patch) add(doc *partialDoc, op operation) error {
 	con, key := findObject(doc, path)
 
 	if con == nil {
-		return fmt.Errorf("Missing container: %s", path)
+		return fmt.Errorf("jsonpatch add operation does not apply: doc is missing path: %s", path)
 	}
 
 	con.set(key, op.value())
@@ -379,6 +379,10 @@ func (p Patch) remove(doc *partialDoc, op operation) error {
 
 	con, key := findObject(doc, path)
 
+	if con == nil {
+		return fmt.Errorf("jsonpatch remove operation does not apply: doc is missing path: %s", path)
+	}
+
 	return con.remove(key)
 }
 
@@ -386,6 +390,10 @@ func (p Patch) replace(doc *partialDoc, op operation) error {
 	path := op.path()
 
 	con, key := findObject(doc, path)
+
+	if con == nil {
+		return fmt.Errorf("jsonpatch replace operation does not apply: doc is missing path: %s", path)
+	}
 
 	con.set(key, op.value())
 
@@ -396,6 +404,10 @@ func (p Patch) move(doc *partialDoc, op operation) error {
 	from := op.from()
 
 	con, key := findObject(doc, from)
+
+	if con == nil {
+		return fmt.Errorf("jsonpatch move operation does not apply: doc is missing from path: %s", from)
+	}
 
 	val, err := con.get(key)
 
@@ -409,6 +421,10 @@ func (p Patch) move(doc *partialDoc, op operation) error {
 
 	con, key = findObject(doc, path)
 
+	if con == nil {
+		return fmt.Errorf("jsonpatch move operation does not apply: doc is missing destination path: %s", path)
+	}
+
 	con.set(key, val)
 
 	return nil
@@ -418,6 +434,10 @@ func (p Patch) test(doc *partialDoc, op operation) error {
 	path := op.path()
 
 	con, key := findObject(doc, path)
+
+	if con == nil {
+		return fmt.Errorf("jsonpatch test operation does not apply: is missing path: %s", path)
+	}
 
 	val, err := con.get(key)
 
