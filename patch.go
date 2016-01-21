@@ -469,8 +469,7 @@ func DecodePatch(buf []byte) (Patch, error) {
 // Apply mutates a JSON document according to the patch, and returns the new
 // document.
 func (p Patch) Apply(doc []byte) ([]byte, error) {
-	res, err := p.ApplyIndent(doc, "")
-	return res, err
+	return p.ApplyIndent(doc, "")
 }
 
 // ApplyIndent mutates a JSON document according to the patch, and returns the new
