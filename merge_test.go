@@ -321,7 +321,7 @@ func TestMergeComplexRemoveAll(t *testing.T) {
 	*/
 }
 
-func TestMergeLargeIdentitalObject(t *testing.T) {
+func TestMergeObjectWithInnerArray(t *testing.T) {
 	stateString := `{
 	  "OuterArray": [
 	    {
