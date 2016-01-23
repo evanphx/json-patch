@@ -469,6 +469,12 @@ func DecodePatch(buf []byte) (Patch, error) {
 // Apply mutates a JSON document according to the patch, and returns the new
 // document.
 func (p Patch) Apply(doc []byte) ([]byte, error) {
+	return p.ApplyIndent(doc, "")
+}
+
+// ApplyIndent mutates a JSON document according to the patch, and returns the new
+// document indented.
+func (p Patch) ApplyIndent(doc []byte, indent string) ([]byte, error) {
 	pd := &partialDoc{}
 
 	err := json.Unmarshal(doc, pd)
@@ -498,6 +504,10 @@ func (p Patch) Apply(doc []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if indent != "" {
+		return json.MarshalIndent(pd, "", indent)
 	}
 
 	return json.Marshal(pd)
