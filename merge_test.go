@@ -320,3 +320,27 @@ func TestMergeComplexRemoveAll(t *testing.T) {
 		}
 	*/
 }
+
+func TestMergeObjectWithInnerArray(t *testing.T) {
+	stateString := `{
+	  "OuterArray": [
+	    {
+		  "InnerArray": [
+	        {
+	          "StringAttr": "abc123"
+	        }
+	      ],
+	      "StringAttr": "def456"
+	    }
+	  ]
+	}`
+
+	patch, err := CreateMergePatch([]byte(stateString), []byte(stateString))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(patch) != "{}" {
+		t.Fatalf("Patch should have been {} but was: %v", string(patch))
+	}
+}
