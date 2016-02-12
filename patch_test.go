@@ -132,6 +132,10 @@ var MutationTestCases = []BadCase{
 		`{ "foo": "bar", "qux": { "baz": 1, "bar": null } }`,
 		`[ { "op": "remove", "path": "/qux/bar" } ]`,
 	},
+	{
+		`{ "foo": "bar", "qux": { "baz": 1, "bar": null } }`,
+		`[ { "op": "replace", "path": "/qux/baz", "value": null } ]`,
+	},
 }
 
 var BadCases = []BadCase{
