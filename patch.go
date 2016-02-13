@@ -42,7 +42,7 @@ func newLazyNode(raw *json.RawMessage) *lazyNode {
 func (n *lazyNode) MarshalJSON() ([]byte, error) {
 	switch n.which {
 	case eRaw:
-		return *n.raw, nil
+		return json.Marshal(n.raw)
 	case eDoc:
 		return json.Marshal(n.doc)
 	case eAry:
