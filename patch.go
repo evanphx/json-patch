@@ -32,6 +32,7 @@ type partialArray []*lazyNode
 type container interface {
 	get(key string) (*lazyNode, error)
 	set(key string, val *lazyNode) error
+	add(key string, val *lazyNode) error
 	remove(key string) error
 }
 
@@ -298,6 +299,11 @@ func (d *partialDoc) set(key string, val *lazyNode) error {
 	return nil
 }
 
+func (d *partialDoc) add(key string, val *lazyNode) error {
+	(*d)[key] = val
+	return nil
+}
+
 func (d *partialDoc) get(key string) (*lazyNode, error) {
 	return (*d)[key], nil
 }
@@ -314,7 +320,38 @@ func (d *partialArray) set(key string, val *lazyNode) error {
 	}
 
 	idx, err := strconv.Atoi(key)
+	if err != nil {
+		return err
+	}
 
+	sz := len(*d)
+	if idx+1 > sz {
+		sz = idx + 1
+	}
+
+	ary := make([]*lazyNode, sz)
+
+	cur := *d
+
+	copy(ary, cur)
+
+	if idx >= len(ary) {
+		fmt.Printf("huh?: %#v[%d] %s, %s\n", ary, idx)
+	}
+
+	ary[idx] = val
+
+	*d = ary
+	return nil
+}
+
+func (d *partialArray) add(key string, val *lazyNode) error {
+	if key == "-" {
+		*d = append(*d, val)
+		return nil
+	}
+
+	idx, err := strconv.Atoi(key)
 	if err != nil {
 		return err
 	}
@@ -369,9 +406,7 @@ func (p Patch) add(doc *partialDoc, op operation) error {
 		return fmt.Errorf("jsonpatch add operation does not apply: doc is missing path: %s", path)
 	}
 
-	con.set(key, op.value())
-
-	return nil
+	return con.add(key, op.value())
 }
 
 func (p Patch) remove(doc *partialDoc, op operation) error {
@@ -395,9 +430,7 @@ func (p Patch) replace(doc *partialDoc, op operation) error {
 		return fmt.Errorf("jsonpatch replace operation does not apply: doc is missing path: %s", path)
 	}
 
-	con.set(key, op.value())
-
-	return nil
+	return con.set(key, op.value())
 }
 
 func (p Patch) move(doc *partialDoc, op operation) error {
@@ -425,9 +458,7 @@ func (p Patch) move(doc *partialDoc, op operation) error {
 		return fmt.Errorf("jsonpatch move operation does not apply: doc is missing destination path: %s", path)
 	}
 
-	con.set(key, val)
-
-	return nil
+	return con.set(key, val)
 }
 
 func (p Patch) test(doc *partialDoc, op operation) error {
