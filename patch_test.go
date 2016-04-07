@@ -163,6 +163,22 @@ var BadCases = []BadCase{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "path": "/baz/bat", "value": "qux" } ]`,
 	},
+	{
+		`{ "a": { "b": { "d": 1 } } }`,
+		`[ { "op": "remove", "path": "/a/b/c" } ]`,
+	},
+	{
+		`{ "a": { "b": { "d": 1 } } }`,
+		`[ { "op": "move", "from": "/a/b/c", "path": "/a/b/e" } ]`,
+	},
+	{
+		`{ "a": { "b": [1] } }`,
+		`[ { "op": "remove", "path": "/a/b/1" } ]`,
+	},
+	{
+		`{ "a": { "b": [1] } }`,
+		`[ { "op": "move", "from": "/a/b/1", "path": "/a/b/2" } ]`,
+	},
 }
 
 func TestAllCases(t *testing.T) {

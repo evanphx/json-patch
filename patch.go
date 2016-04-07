@@ -309,6 +309,11 @@ func (d *partialDoc) get(key string) (*lazyNode, error) {
 }
 
 func (d *partialDoc) remove(key string) error {
+	_, ok := (*d)[key]
+	if !ok {
+		return fmt.Errorf("Unable to remove nonexistant key: %s", key)
+	}
+
 	delete(*d, key)
 	return nil
 }
@@ -375,17 +380,24 @@ func (d *partialArray) get(key string) (*lazyNode, error) {
 		return nil, err
 	}
 
+	if idx >= len(*d) {
+		return nil, fmt.Errorf("Unable to access invalid index: %d", idx)
+	}
+
 	return (*d)[idx], nil
 }
 
 func (d *partialArray) remove(key string) error {
 	idx, err := strconv.Atoi(key)
-
 	if err != nil {
 		return err
 	}
 
 	cur := *d
+
+	if idx >= len(cur) {
+		return fmt.Errorf("Unable to remove invalid index: %d", idx)
+	}
 
 	ary := make([]*lazyNode, len(cur)-1)
 
@@ -443,12 +455,14 @@ func (p Patch) move(doc *partialDoc, op operation) error {
 	}
 
 	val, err := con.get(key)
-
 	if err != nil {
 		return err
 	}
 
-	con.remove(key)
+	err = con.remove(key)
+	if err != nil {
+		return err
+	}
 
 	path := op.path()
 
