@@ -107,6 +107,23 @@ func TestMergePatchReturnsErrorOnBadJSON(t *testing.T) {
 	}
 }
 
+func TestMergePatchReturnsEmptyArrayOnEmptyArray(t *testing.T) {
+	doc := `{ "array": ["one", "two"] }`
+	pat := `{ "array": [] }`
+
+	exp := `{ "array": [] }`
+
+	res, err := MergePatch([]byte(doc), []byte(pat))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	if !compareJSON(exp, string(res)) {
+		t.Fatalf("Emtpy array did not return not return as empty array")
+	}
+}
+
 var rfcTests = []struct {
 	target   string
 	patch    string
