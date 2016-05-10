@@ -69,7 +69,7 @@ func pruneDocNulls(doc *partialDoc) *partialDoc {
 }
 
 func pruneAryNulls(ary *partialArray) *partialArray {
-	var newAry []*lazyNode
+	newAry := []*lazyNode{}
 
 	for _, v := range *ary {
 		if v != nil {
