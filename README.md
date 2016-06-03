@@ -1,6 +1,6 @@
 ## JSON-Patch
 
-Provides the abiilty to modify and test a JSON according to a
+Provides the ability to modify and test a JSON according to a
 [RFC6902 JSON patch](http://tools.ietf.org/html/rfc6902) and [RFC7396 JSON Merge Patch](https://tools.ietf.org/html/rfc7396).
 
 *Version*: **1.0**
