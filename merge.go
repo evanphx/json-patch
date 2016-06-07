@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 func merge(cur, patch *lazyNode) *lazyNode {
@@ -27,6 +28,7 @@ func merge(cur, patch *lazyNode) *lazyNode {
 
 func mergeDocs(doc, patch *partialDoc) {
 	for k, v := range *patch {
+		k := decodePatchKey(k)
 		if v == nil {
 			delete(*doc, k)
 		} else {
@@ -229,15 +231,16 @@ func matchesValue(av, bv interface{}) bool {
 func getDiff(a, b map[string]interface{}) (map[string]interface{}, error) {
 	into := map[string]interface{}{}
 	for key, bv := range b {
+		escapedKey := encodePatchKey(key)
 		av, ok := a[key]
 		// value was added
 		if !ok {
-			into[key] = bv
+			into[escapedKey] = bv
 			continue
 		}
 		// If types have changed, replace completely
 		if reflect.TypeOf(av) != reflect.TypeOf(bv) {
-			into[key] = bv
+			into[escapedKey] = bv
 			continue
 		}
 		// Types are the same, compare values
@@ -250,23 +253,23 @@ func getDiff(a, b map[string]interface{}) (map[string]interface{}, error) {
 				return nil, err
 			}
 			if len(dst) > 0 {
-				into[key] = dst
+				into[escapedKey] = dst
 			}
 		case string, float64, bool:
 			if !matchesValue(av, bv) {
-				into[key] = bv
+				into[escapedKey] = bv
 			}
 		case []interface{}:
 			bt := bv.([]interface{})
 			if !matchesArray(at, bt) {
-				into[key] = bv
+				into[escapedKey] = bv
 			}
 		case nil:
 			switch bv.(type) {
 			case nil:
 				// Both nil, fine.
 			default:
-				into[key] = bv
+				into[escapedKey] = bv
 			}
 		default:
 			panic(fmt.Sprintf("Unknown type:%T in key %s", av, key))
@@ -280,4 +283,24 @@ func getDiff(a, b map[string]interface{}) (map[string]interface{}, error) {
 		}
 	}
 	return into, nil
+}
+
+// From http://tools.ietf.org/html/rfc6901#section-4 :
+//
+// Evaluation of each reference token begins by decoding any escaped
+// character sequence.  This is performed by first transforming any
+// occurrence of the sequence '~1' to '/', and then transforming any
+// occurrence of the sequence '~0' to '~'.
+
+var (
+	rfc6901Encoder = strings.NewReplacer("~", "~0", "/", "~1")
+	rfc6901Decoder = strings.NewReplacer("~1", "/", "~0", "~")
+)
+
+func decodePatchKey(k string) string {
+	return rfc6901Decoder.Replace(k)
+}
+
+func encodePatchKey(k string) string {
+	return rfc6901Encoder.Replace(k)
 }
