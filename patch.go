@@ -270,7 +270,7 @@ func findObject(pd *partialDoc, path string) (container, string) {
 
 	for _, part := range parts {
 
-		next, ok := doc.get(part)
+		next, ok := doc.get(decodePatchKey(part))
 
 		if next == nil || ok != nil {
 			return nil, ""
@@ -291,7 +291,7 @@ func findObject(pd *partialDoc, path string) (container, string) {
 		}
 	}
 
-	return doc, key
+	return doc, decodePatchKey(key)
 }
 
 func (d *partialDoc) set(key string, val *lazyNode) error {
