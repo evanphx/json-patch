@@ -341,7 +341,7 @@ func (d *partialArray) set(key string, val *lazyNode) error {
 	copy(ary, cur)
 
 	if idx >= len(ary) {
-		fmt.Printf("huh?: %#v[%d] %s, %s\n", ary, idx)
+		return fmt.Errorf("Unable to access invalid index: %d", idx)
 	}
 
 	ary[idx] = val
