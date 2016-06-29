@@ -311,7 +311,7 @@ func (d *partialDoc) get(key string) (*lazyNode, error) {
 func (d *partialDoc) remove(key string) error {
 	_, ok := (*d)[key]
 	if !ok {
-		return fmt.Errorf("Unable to remove nonexistant key: %s", key)
+		return fmt.Errorf("Unable to remove nonexistent key: %s", key)
 	}
 
 	delete(*d, key)
