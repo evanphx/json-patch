@@ -141,6 +141,11 @@ var Cases = []Case{
 		`[ { "op": "replace", "path": "/foo/1", "value": "bum"}]`,
 		`{ "foo": ["bar", "bum","baz"]}`,
 	},
+	{
+		`[ {"foo": ["bar","qux","baz"]}]`,
+		`[ { "op": "replace", "path": "/0/foo/0", "value": "bum"}]`,
+		`[ {"foo": ["bum","qux","baz"]}]`,
+	},
 }
 
 type BadCase struct {
