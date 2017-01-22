@@ -264,6 +264,10 @@ func findObject(pd *container, path string) (container, string) {
 
 	split := strings.Split(path, "/")
 
+	if len(split) < 2 {
+		return nil, ""
+	}
+
 	parts := split[1 : len(split)-1]
 
 	key := split[len(split)-1]
