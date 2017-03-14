@@ -508,6 +508,31 @@ func (p Patch) test(doc *container, op operation) error {
 	return fmt.Errorf("Testing value %s failed", path)
 }
 
+func (p Patch) copy(doc *container, op operation) error {
+	from := op.from()
+
+	con, key := findObject(doc, from)
+
+	if con == nil {
+		return fmt.Errorf("jsonpatch copy operation does not apply: doc is missing from path: %s", from)
+	}
+
+	val, err := con.get(key)
+	if err != nil {
+		return err
+	}
+
+	path := op.path()
+
+	con, key = findObject(doc, path)
+
+	if con == nil {
+		return fmt.Errorf("jsonpatch copy operation does not apply: doc is missing destination path: %s", path)
+	}
+
+	return con.set(key, val)
+}
+
 // Equal indicates if 2 JSON documents have the same structural equality.
 func Equal(a, b []byte) bool {
 	ra := make(json.RawMessage, len(a))
@@ -570,6 +595,8 @@ func (p Patch) ApplyIndent(doc []byte, indent string) ([]byte, error) {
 			err = p.move(&pd, op)
 		case "test":
 			err = p.test(&pd, op)
+		case "copy":
+			err = p.copy(&pd, op)
 		default:
 			err = fmt.Errorf("Unexpected kind: %s", op.kind())
 		}
