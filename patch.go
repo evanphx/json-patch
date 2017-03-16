@@ -446,6 +446,11 @@ func (p Patch) replace(doc *container, op operation) error {
 		return fmt.Errorf("jsonpatch replace operation does not apply: doc is missing path: %s", path)
 	}
 
+	val, ok := con.get(key)
+	if val == nil || ok != nil {
+		return fmt.Errorf("jsonpatch replace operation does not apply: doc is missing key: %s", path)
+	}
+
 	return con.set(key, op.value())
 }
 
