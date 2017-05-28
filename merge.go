@@ -28,7 +28,6 @@ func merge(cur, patch *lazyNode, mergeMerge bool) *lazyNode {
 
 func mergeDocs(doc, patch *partialDoc, mergeMerge bool) {
 	for k, v := range *patch {
-		k := decodePatchKey(k)
 		if v == nil {
 			if mergeMerge {
 				(*doc)[k] = nil
@@ -250,16 +249,15 @@ func matchesValue(av, bv interface{}) bool {
 func getDiff(a, b map[string]interface{}) (map[string]interface{}, error) {
 	into := map[string]interface{}{}
 	for key, bv := range b {
-		escapedKey := encodePatchKey(key)
 		av, ok := a[key]
 		// value was added
 		if !ok {
-			into[escapedKey] = bv
+			into[key] = bv
 			continue
 		}
 		// If types have changed, replace completely
 		if reflect.TypeOf(av) != reflect.TypeOf(bv) {
-			into[escapedKey] = bv
+			into[key] = bv
 			continue
 		}
 		// Types are the same, compare values
@@ -272,23 +270,23 @@ func getDiff(a, b map[string]interface{}) (map[string]interface{}, error) {
 				return nil, err
 			}
 			if len(dst) > 0 {
-				into[escapedKey] = dst
+				into[key] = dst
 			}
 		case string, float64, bool:
 			if !matchesValue(av, bv) {
-				into[escapedKey] = bv
+				into[key] = bv
 			}
 		case []interface{}:
 			bt := bv.([]interface{})
 			if !matchesArray(at, bt) {
-				into[escapedKey] = bv
+				into[key] = bv
 			}
 		case nil:
 			switch bv.(type) {
 			case nil:
 				// Both nil, fine.
 			default:
-				into[escapedKey] = bv
+				into[key] = bv
 			}
 		default:
 			panic(fmt.Sprintf("Unknown type:%T in key %s", av, key))
