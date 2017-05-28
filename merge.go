@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 func merge(cur, patch *lazyNode, mergeMerge bool) *lazyNode {
@@ -300,24 +299,4 @@ func getDiff(a, b map[string]interface{}) (map[string]interface{}, error) {
 		}
 	}
 	return into, nil
-}
-
-// From http://tools.ietf.org/html/rfc6901#section-4 :
-//
-// Evaluation of each reference token begins by decoding any escaped
-// character sequence.  This is performed by first transforming any
-// occurrence of the sequence '~1' to '/', and then transforming any
-// occurrence of the sequence '~0' to '~'.
-
-var (
-	rfc6901Encoder = strings.NewReplacer("~", "~0", "/", "~1")
-	rfc6901Decoder = strings.NewReplacer("~1", "/", "~0", "~")
-)
-
-func decodePatchKey(k string) string {
-	return rfc6901Decoder.Replace(k)
-}
-
-func encodePatchKey(k string) string {
-	return rfc6901Encoder.Replace(k)
 }
