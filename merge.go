@@ -224,6 +224,9 @@ func matchesValue(av, bv interface{}) bool {
 		if bt == at {
 			return true
 		}
+	case nil:
+		// Both nil, fine.
+		return true
 	case map[string]interface{}:
 		bt := bv.(map[string]interface{})
 		for key := range at {
