@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"bytes"
 )
 
 func merge(cur, patch *lazyNode, mergeMerge bool) *lazyNode {
@@ -167,21 +168,56 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 //
 // An error will be returned if any of the two documents are invalid.
 func CreateMergePatch(a, b []byte) ([]byte, error) {
-	aI := map[string]interface{}{}
-	bI := map[string]interface{}{}
-	err := json.Unmarshal(a, &aI)
-	if err != nil {
-		return nil, errBadJSONDoc
+
+	// trimming extra spaces because we are checking prefixes
+	a = bytes.TrimSpace(a)
+	b = bytes.TrimSpace(b)
+	// Check if the Json is an Array Of Json -> [] Instead of Object -> {}
+	array := bytes.HasPrefix(a, []byte("["))
+
+	if array {
+
+		aI := []map[string]interface{}{}
+		bI := []map[string]interface{}{}
+		err := json.Unmarshal(a, &aI)
+		if err != nil {
+			return nil, errBadJSONDoc
+		}
+		err = json.Unmarshal(b, &bI)
+		if err != nil {
+			return nil, errBadJSONDoc
+		}
+
+		res := []map[string]interface{}{}
+		for _, k := range aI {
+			for _, l := range bI {
+				dest, err := getDiff(k, l)
+				if err != nil {
+					return nil, err
+				}
+				res = append(res, dest)
+			}
+		}
+		return json.Marshal(res)
+
+	}else {
+
+		aI := map[string]interface{}{}
+		bI := map[string]interface{}{}
+		err := json.Unmarshal(a, &aI)
+		if err != nil {
+			return nil, errBadJSONDoc
+		}
+		err = json.Unmarshal(b, &bI)
+		if err != nil {
+			return nil, errBadJSONDoc
+		}
+		dest, err := getDiff(aI, bI)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(dest)
 	}
-	err = json.Unmarshal(b, &bI)
-	if err != nil {
-		return nil, errBadJSONDoc
-	}
-	dest, err := getDiff(aI, bI)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(dest)
 }
 
 // Returns true if the array matches (must be json types).
