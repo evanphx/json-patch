@@ -104,6 +104,10 @@ func (n *lazyNode) compact() []byte {
 }
 
 func (n *lazyNode) tryDoc() bool {
+	if n.raw == nil {
+		return false
+	}
+
 	err := json.Unmarshal(*n.raw, &n.doc)
 
 	if err != nil {
@@ -115,6 +119,10 @@ func (n *lazyNode) tryDoc() bool {
 }
 
 func (n *lazyNode) tryAry() bool {
+	if n.raw == nil {
+		return false
+	}
+
 	err := json.Unmarshal(*n.raw, &n.ary)
 
 	if err != nil {
