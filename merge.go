@@ -230,16 +230,20 @@ func createArrayMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 
 	res := []json.RawMessage{}
 
-	for _, original := range originalDocs {
-		for _, modified := range modifiedDocs {
-			patch, err := createObjectMergePatch(original, modified)
-			if err != nil {
-				return nil, err
-			}
+	total := len(originalDocs)
+	if len(modifiedDocs) != total {
+		return nil, errBadJSONDoc
+	}
 
-			// We get back bytes, but since we need to
-			res = append(res, json.RawMessage(patch))
+	for i := 0; i < len(originalDocs); i++ {
+		original := originalDocs[i]
+		modified := modifiedDocs[i]
+		patch, err := createObjectMergePatch(original, modified)
+		if err != nil {
+			return nil, err
 		}
+
+		res = append(res, json.RawMessage(patch))
 	}
 
 	return json.Marshal(res)

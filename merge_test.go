@@ -315,8 +315,46 @@ func TestCreateMergePatchSameOuterArray(t *testing.T) {
 		t.Errorf("Unexpected error: %s, %s", err, string(res))
 	}
 
-	if exp != string(res) {
+	if !compareJSON(exp, string(res)) {
 		t.Fatalf("Outer array was not unmodified")
+	}
+}
+
+func TestCreateMergePatchModifiedOuterArray(t *testing.T) {
+	doc := `[{"name": "John"}, {"name": "Will"}]`
+	pat := `[{"name": "Jane"}, {"name": "Will"}]`
+	exp := `[{"name": "Jane"}, {}]`
+
+	res, err := CreateMergePatch([]byte(doc), []byte(pat))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	if !compareJSON(exp, string(res)) {
+		t.Fatalf("Expected %s but received %s", exp, res)
+	}
+}
+
+func TestCreateMergePatchMismatchedOuterArray(t *testing.T) {
+	doc := `[{"name": "John"}, {"name": "Will"}]`
+	pat := `[{"name": "Jane"}]`
+
+	_, err := CreateMergePatch([]byte(doc), []byte(pat))
+
+	if err == nil {
+		t.Errorf("Expected error due to array length differences but received none")
+	}
+}
+
+func TestCreateMergePatchMismatchedOuterTypes(t *testing.T) {
+	doc := `[{"name": "John"}]`
+	pat := `{"name": "Jane"}`
+
+	_, err := CreateMergePatch([]byte(doc), []byte(pat))
+
+	if err == nil {
+		t.Errorf("Expected error due to mismatched types but received none")
 	}
 }
 
