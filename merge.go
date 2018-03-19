@@ -1,6 +1,7 @@
 package jsonpatch
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -89,6 +90,7 @@ func pruneAryNulls(ary *partialArray) *partialArray {
 
 var errBadJSONDoc = fmt.Errorf("Invalid JSON Document")
 var errBadJSONPatch = fmt.Errorf("Invalid JSON Patch")
+var errBadMergeTypes = fmt.Errorf("Mismatched JSON Documents")
 
 // MergeMergePatches merges two merge patches together, such that
 // applying this resulting merged merge patch to a document yields the same
@@ -160,28 +162,87 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	return json.Marshal(doc)
 }
 
+func resemblesJSONArray(input []byte) bool {
+	input = bytes.TrimSpace(input)
+
+	hasPrefix := bytes.HasPrefix(input, []byte("["))
+	hasSuffix := bytes.HasSuffix(input, []byte("]"))
+
+	return hasPrefix && hasSuffix
+}
+
 // CreateMergePatch creates a merge patch as specified in http://tools.ietf.org/html/draft-ietf-appsawg-json-merge-patch-07
 //
 // 'a' is original, 'b' is the modified document. Both are to be given as json encoded content.
 // The function will return a mergeable json document with differences from a to b.
 //
 // An error will be returned if any of the two documents are invalid.
-func CreateMergePatch(a, b []byte) ([]byte, error) {
-	aI := map[string]interface{}{}
-	bI := map[string]interface{}{}
-	err := json.Unmarshal(a, &aI)
+func CreateMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
+	originalResemblesArray := resemblesJSONArray(originalJSON)
+	modifiedResemblesArray := resemblesJSONArray(modifiedJSON)
+
+	if originalResemblesArray && modifiedResemblesArray {
+		return createArrayMergePatch(originalJSON, modifiedJSON)
+	}
+
+	if !originalResemblesArray && !modifiedResemblesArray {
+		return createObjectMergePatch(originalJSON, modifiedJSON)
+	}
+
+	return nil, errBadMergeTypes
+}
+
+func createObjectMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
+	originalDoc := map[string]interface{}{}
+	modifiedDoc := map[string]interface{}{}
+
+	err := json.Unmarshal(originalJSON, &originalDoc)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
-	err = json.Unmarshal(b, &bI)
+
+	err = json.Unmarshal(modifiedJSON, &modifiedDoc)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
-	dest, err := getDiff(aI, bI)
+
+	dest, err := getDiff(originalDoc, modifiedDoc)
 	if err != nil {
 		return nil, err
 	}
+
 	return json.Marshal(dest)
+}
+
+func createArrayMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
+	originalDocs := []json.RawMessage{}
+	modifiedDocs := []json.RawMessage{}
+
+	err := json.Unmarshal(originalJSON, &originalDocs)
+	if err != nil {
+		return nil, errBadJSONDoc
+	}
+
+	err = json.Unmarshal(modifiedJSON, &modifiedDocs)
+	if err != nil {
+		return nil, errBadJSONDoc
+	}
+
+	res := []json.RawMessage{}
+
+	for _, original := range originalDocs {
+		for _, modified := range modifiedDocs {
+			patch, err := createObjectMergePatch(original, modified)
+			if err != nil {
+				return nil, err
+			}
+
+			// We get back bytes, but since we need to
+			res = append(res, json.RawMessage(patch))
+		}
+	}
+
+	return json.Marshal(res)
 }
 
 // Returns true if the array matches (must be json types).

@@ -184,7 +184,7 @@ func TestMergePatchFailRFCCases(t *testing.T) {
 
 }
 
-func TestMergeReplaceKey(t *testing.T) {
+func TestCreateMergePatchReplaceKey(t *testing.T) {
 	doc := `{ "title": "hello", "nested": {"one": 1, "two": 2} }`
 	pat := `{ "title": "goodbye", "nested": {"one": 2, "two": 2}  }`
 
@@ -201,7 +201,7 @@ func TestMergeReplaceKey(t *testing.T) {
 	}
 }
 
-func TestMergeGetArray(t *testing.T) {
+func TestCreateMergePatchGetArray(t *testing.T) {
 	doc := `{ "title": "hello", "array": ["one", "two"], "notmatch": [1, 2, 3] }`
 	pat := `{ "title": "hello", "array": ["one", "two", "three"], "notmatch": [1, 2, 3]  }`
 
@@ -218,7 +218,7 @@ func TestMergeGetArray(t *testing.T) {
 	}
 }
 
-func TestMergeGetObjArray(t *testing.T) {
+func TestCreateMergePatchGetObjArray(t *testing.T) {
 	doc := `{ "title": "hello", "array": [{"banana": true}, {"evil": false}], "notmatch": [{"one":1}, {"two":2}, {"three":3}] }`
 	pat := `{ "title": "hello", "array": [{"banana": false}, {"evil": true}], "notmatch": [{"one":1}, {"two":2}, {"three":3}] }`
 
@@ -235,7 +235,7 @@ func TestMergeGetObjArray(t *testing.T) {
 	}
 }
 
-func TestMergeDeleteKey(t *testing.T) {
+func TestCreateMergePatchDeleteKey(t *testing.T) {
 	doc := `{ "title": "hello", "nested": {"one": 1, "two": 2} }`
 	pat := `{ "title": "hello", "nested": {"one": 1}  }`
 
@@ -253,7 +253,7 @@ func TestMergeDeleteKey(t *testing.T) {
 	}
 }
 
-func TestMergeEmptyArray(t *testing.T) {
+func TestCreateMergePatchEmptyArray(t *testing.T) {
 	doc := `{ "array": null }`
 	pat := `{ "array": [] }`
 
@@ -288,7 +288,7 @@ func TestCreateMergePatchNil(t *testing.T) {
 	}
 }
 
-func TestMergeObjArray(t *testing.T) {
+func TestCreateMergePatchObjArray(t *testing.T) {
 	doc := `{ "array": [ {"a": {"b": 2}}, {"a": {"b": 3}} ]}`
 	exp := `{}`
 
@@ -304,7 +304,40 @@ func TestMergeObjArray(t *testing.T) {
 	}
 }
 
-func TestMergeComplexMatch(t *testing.T) {
+func TestCreateMergePatchSameOuterArray(t *testing.T) {
+	doc := `[{"foo": "bar"}]`
+	pat := doc
+	exp := `[{}]`
+
+	res, err := CreateMergePatch([]byte(doc), []byte(pat))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	if exp != string(res) {
+		t.Fatalf("Outer array was not unmodified")
+	}
+}
+
+func TestCreateMergePatchNoDifferences(t *testing.T) {
+	doc := `{ "title": "hello", "nested": {"one": 1, "two": 2} }`
+	pat := doc
+
+	exp := `{}`
+
+	res, err := CreateMergePatch([]byte(doc), []byte(pat))
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	if !compareJSON(exp, string(res)) {
+		t.Fatalf("Key was not replaced")
+	}
+}
+
+func TestCreateMergePatchComplexMatch(t *testing.T) {
 	doc := `{"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4], "nested": {"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4]} }`
 	empty := `{}`
 	res, err := CreateMergePatch([]byte(doc), []byte(doc))
@@ -319,7 +352,7 @@ func TestMergeComplexMatch(t *testing.T) {
 	}
 }
 
-func TestMergeComplexAddAll(t *testing.T) {
+func TestCreateMergePatchComplexAddAll(t *testing.T) {
 	doc := `{"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4], "nested": {"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4]} }`
 	empty := `{}`
 	res, err := CreateMergePatch([]byte(empty), []byte(doc))
@@ -333,7 +366,7 @@ func TestMergeComplexAddAll(t *testing.T) {
 	}
 }
 
-func TestMergeComplexRemoveAll(t *testing.T) {
+func TestCreateMergePatchComplexRemoveAll(t *testing.T) {
 	doc := `{"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4], "nested": {"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4]} }`
 	exp := `{"a":null,"f":null,"hello":null,"i":null,"n":null,"nested":null,"pi":null,"t":null}`
 	empty := `{}`
@@ -355,7 +388,7 @@ func TestMergeComplexRemoveAll(t *testing.T) {
 	*/
 }
 
-func TestMergeObjectWithInnerArray(t *testing.T) {
+func TestCreateMergePatchObjectWithInnerArray(t *testing.T) {
 	stateString := `{
 	  "OuterArray": [
 	    {
@@ -379,7 +412,7 @@ func TestMergeObjectWithInnerArray(t *testing.T) {
 	}
 }
 
-func TestMergeReplaceKeyNotEscape(t *testing.T) {
+func TestCreateMergePatchReplaceKeyNotEscape(t *testing.T) {
 	doc := `{ "title": "hello", "nested": {"title/escaped": 1, "two": 2} }`
 	pat := `{ "title": "goodbye", "nested": {"title/escaped": 2, "two": 2}  }`
 
