@@ -185,14 +185,17 @@ func CreateMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 	originalResemblesArray := resemblesJSONArray(originalJSON)
 	modifiedResemblesArray := resemblesJSONArray(modifiedJSON)
 
+	// Do both byte-slices seem like JSON arrays?
 	if originalResemblesArray && modifiedResemblesArray {
 		return createArrayMergePatch(originalJSON, modifiedJSON)
 	}
 
+	// Are both byte-slices are not arrays? Then they are likely JSON objects...
 	if !originalResemblesArray && !modifiedResemblesArray {
 		return createObjectMergePatch(originalJSON, modifiedJSON)
 	}
 
+	// None of the above? Then return an error because of mismatched types.
 	return nil, errBadMergeTypes
 }
 
