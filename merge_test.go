@@ -184,6 +184,49 @@ func TestMergePatchFailRFCCases(t *testing.T) {
 
 }
 
+func TestResembleJSONArray(t *testing.T) {
+	testCases := []struct {
+		input    []byte
+		expected bool
+	}{
+		// Failure cases
+		{input: []byte(``), expected: false},
+		{input: []byte(`not an array`), expected: false},
+		{input: []byte(`{"foo": "bar"}`), expected: false},
+		{input: []byte(`{"fizz": ["buzz"]}`), expected: false},
+		{input: []byte(`[bad suffix`), expected: false},
+		{input: []byte(`bad prefix]`), expected: false},
+		{input: []byte(`][`), expected: false},
+
+		// Valid cases
+		{input: []byte(`[]`), expected: true},
+		{input: []byte(`["foo", "bar"]`), expected: true},
+		{input: []byte(`[["foo", "bar"]]`), expected: true},
+		{input: []byte(`[not valid syntax]`), expected: true},
+
+		// Valid cases with whitespace
+		{input: []byte(`      []`), expected: true},
+		{input: []byte(`[]      `), expected: true},
+		{input: []byte(`      []      `), expected: true},
+		{input: []byte(`      [        ]      `), expected: true},
+		{input: []byte("\t[]"), expected: true},
+		{input: []byte("[]\n"), expected: true},
+		{input: []byte("\n\t\r[]"), expected: true},
+	}
+
+	for _, test := range testCases {
+		result := resemblesJSONArray(test.input)
+		if result != test.expected {
+			t.Errorf(
+				`expected "%t" but received "%t" for case: "%s"`,
+				test.expected,
+				result,
+				string(test.input),
+			)
+		}
+	}
+}
+
 func TestCreateMergePatchReplaceKey(t *testing.T) {
 	doc := `{ "title": "hello", "nested": {"one": 1, "two": 2} }`
 	pat := `{ "title": "goodbye", "nested": {"one": 2, "two": 2}  }`
