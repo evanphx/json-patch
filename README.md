@@ -1,7 +1,7 @@
 ## JSON-Patch
 
-Provides the ability to modify and test a JSON according to a
-[RFC6902 JSON patch](http://tools.ietf.org/html/rfc6902) and [RFC7396 JSON Merge Patch](https://tools.ietf.org/html/rfc7396).
+This package provides the ability to apply [RFC6902 JSON patches](http://tools.ietf.org/html/rfc6902) 
+as well as create [RFC7396 JSON Merge Patches](https://tools.ietf.org/html/rfc7396).
 
 *Version*: **1.0**
 
@@ -9,8 +9,8 @@ Provides the ability to modify and test a JSON according to a
 [![Build Status](https://travis-ci.org/evanphx/json-patch.svg?branch=master)](https://travis-ci.org/evanphx/json-patch)
 [![Report Card](https://goreportcard.com/badge/github.com/evanphx/json-patch)](https://goreportcard.com/report/github.com/evanphx/json-patch)
 
-### API Usage
-#### Create a merge patch
+## API Usage
+### Create a merge patch
 Given both an original JSON document and a modified JSON document, you can create
 a "merge patch" document, used to describe the changes needed to convert from the
 original to the modified.
@@ -44,7 +44,7 @@ $ go run main.go
 {"height":null,"name":"Jane"}
 ```
 
-#### Create and apply a Patch
+### Create and apply a Patch
 You can create patch objects using `DecodePatch([]byte)`, which can then 
 be applied against JSON documents.
 
@@ -88,43 +88,40 @@ $ go run main.go
 {"age":24,"name":"Jane"}
 ```
 
-#### Comparing JSON documents
+### Comparing JSON documents
+You can install the commandline program `json-patch` which can take multiple 
+JSON patch documents, and be feed a JSON document from `stdin`. It will 
+apply the patch(es) against the document and output the modified doc.
 
-If you have two JSON documents, you can  compare documents for structural
-equality using `Equal`, which will compare the two documents based on their
-actual keys and values, and not on whitespace or attribute ordering.
+**patch.1.json**
+```json
+[
+    {"op": "replace", "path": "/name", "value": "Jane"},
+    {"op": "remove", "path": "/height"}
+]
+```
 
-For example:
+**patch.2.json**
+```json
+[
+    {"op": "add", "path": "/address", "value": "123 Main St"},
+    {"op": "replace", "path": "/age", "value": "21"}
+]
+```
 
-```go
-package main
-
-import (
-	"fmt"
-
-	jsonpatch "github.com/evanphx/json-patch"
-)
-
-func main() {
-	firstDoc := []byte(`{"name": "John", "age": 24, "height": 3.21}`)
-	secondDoc := []byte(`{
-		"height": 3.21,
-		"age"	: 24,
-		"name"	: "John"
-	}`)
-
-	didMatch := jsonpatch.Equal(firstDoc, secondDoc)
-	if didMatch {
-		fmt.Println("The two documents were the same structurally.")
-	} else {
-		fmt.Println("The two documents were structurally different.")
-	}
+**document.json**
+```json
+{
+    "name": "John",
+    "age": 24,
+    "height": 3.21
 }
 ```
 
-When ran, you get the following output:
+You can then run:
 
 ```bash
-$ go run main.go
-The two documents were structurally equal.
+$ go install github.com/evanphx/json-patch/cmd/json-patch
+$ cat document.json | json-patch -p patch.1.json -p patch.2.json
+{"address":"123 Main St","age":"21","name":"Jane"}
 ```
