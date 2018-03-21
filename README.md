@@ -44,22 +44,87 @@ $ go run main.go
 {"height":null,"name":"Jane"}
 ```
 
-#### Decode a Patch
+#### Create and apply a Patch
+You can create patch objects using `DecodePatch([]byte)`, which can then 
+be applied against JSON documents.
 
+The following is an example of creating a patch from two operations, and
+applying it against a JSON document.
 
-* Given a `[]byte`, obtain a Patch object
+```go
+package main
 
-  `obj, err := jsonpatch.DecodePatch(patch)`
+import (
+	"fmt"
 
-* Apply the patch and get a new document back
+	jsonpatch "github.com/evanphx/json-patch"
+)
 
-  `out, err := obj.Apply(doc)`
+func main() {
+	document := []byte(`{"name": "John", "age": 24, "height": 3.21}`)
+	patchJSON := []byte(`[
+		{"op": "replace", "path": "/name", "value": "Jane"},
+		{"op": "remove", "path": "/height"}
+	]`)
 
-* Create a JSON Merge Patch document based on two json documents (a to b):
+	patch, err := jsonpatch.DecodePatch(patchJSON)
+	if err != nil {
+		panic(err)
+	}
 
-  `mergeDoc, err := jsonpatch.CreateMergePatch(a, b)`
- 
-* Bonus API: compare documents for structural equality
+	modified, err := patch.Apply(document)
+	if err != nil {
+		panic(err)
+	}
 
-  `jsonpatch.Equal(doca, docb)`
+	fmt.Println(string(modified))
+}
+```
 
+When ran, you get the following output:
+
+```bash
+$ go run main.go
+{"age":24,"name":"Jane"}
+```
+
+#### Comparing JSON documents
+
+If you have two JSON documents, you can  compare documents for structural
+equality using `Equal`, which will compare the two documents based on their
+actual keys and values, and not on whitespace or attribute ordering.
+
+For example:
+
+```go
+package main
+
+import (
+	"fmt"
+
+	jsonpatch "github.com/evanphx/json-patch"
+)
+
+func main() {
+	firstDoc := []byte(`{"name": "John", "age": 24, "height": 3.21}`)
+	secondDoc := []byte(`{
+		"height": 3.21,
+		"age"	: 24,
+		"name"	: "John"
+	}`)
+
+	didMatch := jsonpatch.Equal(firstDoc, secondDoc)
+	if didMatch {
+		fmt.Println("The two documents were the same structurally.")
+	} else {
+		fmt.Println("The two documents were structurally different.")
+	}
+}
+```
+
+When ran, you get the following output:
+
+```bash
+$ go run main.go
+The two documents were structurally equal.
+```
