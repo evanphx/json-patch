@@ -162,6 +162,11 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	return json.Marshal(doc)
 }
 
+// resemblesJSONArray indicates whether the byte-slice "appears" to be
+// a JSON array or not.
+// False-positives are possible, as this function does not check the internal
+// structure of the array. It only checks that the outer syntax is present and
+// correct.
 func resemblesJSONArray(input []byte) bool {
 	input = bytes.TrimSpace(input)
 
@@ -171,9 +176,11 @@ func resemblesJSONArray(input []byte) bool {
 	return hasPrefix && hasSuffix
 }
 
-// CreateMergePatch will return a merge-patch document capable of converting
+// CreateMergePatch will return a merge patch document capable of converting
 // the original document(s) to the modified document(s).
-// The merge patch is as specified in http://tools.ietf.org/html/draft-ietf-appsawg-json-merge-patch-07
+// The parameters can be bytes of either two JSON Documents, or two arrays of
+// JSON documents.
+// The merge patch returned follows the specification defined at http://tools.ietf.org/html/draft-ietf-appsawg-json-merge-patch-07
 func CreateMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 	originalResemblesArray := resemblesJSONArray(originalJSON)
 	modifiedResemblesArray := resemblesJSONArray(modifiedJSON)
