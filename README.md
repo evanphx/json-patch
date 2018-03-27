@@ -144,7 +144,11 @@ $ cat document.json | json-patch -p patch.1.json -p patch.2.json
 
 # Help It!
 Contributions are welcomed! Leave [an issue](https://github.com/evanphx/json-patch/issues)
-or [create a PR](https://github.com/evanphx/json-patch/compare)!
+or [create a PR](https://github.com/evanphx/json-patch/compare).
+
+
+Before creating a pull request, we'd ask that you make sure tests are passing
+and that you have added new tests when applicable.
 
 Contributors can run tests using:
 
