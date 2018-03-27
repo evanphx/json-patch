@@ -1,15 +1,23 @@
 ## JSON-Patch
+`jsonpatch` provides the ability to decode and apply JSON patches against
+documents, as well as generate merge-patches.
 
-This package provides the ability to apply [RFC6902 JSON patches](http://tools.ietf.org/html/rfc6902) 
+Specifically, this package provides the ability to apply [RFC6902 JSON patches](http://tools.ietf.org/html/rfc6902) 
 as well as create [RFC7396 JSON Merge Patches](https://tools.ietf.org/html/rfc7396).
-
-*Version*: **1.0**
 
 [![GoDoc](https://godoc.org/github.com/evanphx/json-patch?status.svg)](http://godoc.org/github.com/evanphx/json-patch)
 [![Build Status](https://travis-ci.org/evanphx/json-patch.svg?branch=master)](https://travis-ci.org/evanphx/json-patch)
 [![Report Card](https://goreportcard.com/badge/github.com/evanphx/json-patch)](https://goreportcard.com/report/github.com/evanphx/json-patch)
 
-## API Usage
+## Get It!
+
+Latest and greatest: `go get -u github.com/evanphx/json-patch`
+
+Stable Versions:
+* Version 3: `go get -u gopkg.in/evanphx/json-patch.v3`
+(previous versions unavailable)
+
+## Use It!
 ### Create a merge patch
 Given both an original JSON document and a modified JSON document, you can create
 a "merge patch" document, used to describe the changes needed to convert from the
