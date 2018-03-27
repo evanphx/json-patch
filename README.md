@@ -11,13 +11,18 @@ as well as create [RFC7396 JSON Merge Patches](https://tools.ietf.org/html/rfc73
 
 ## Get It!
 
-Latest and greatest: `go get -u github.com/evanphx/json-patch`
+**Latest and greatest**: `go get -u github.com/evanphx/json-patch`
 
-Stable Versions:
+**Stable Versions**:
 * Version 3: `go get -u gopkg.in/evanphx/json-patch.v3`
+
 (previous versions unavailable)
 
 ## Use It!
+* [Create a merge patch](#create-a-merge-patch)
+* [Create and apply a Patch](#create-and-apply-a-patch)
+* [Comparing JSON documents](#comparing-json-documents)
+
 ### Create a merge patch
 Given both an original JSON document and a modified JSON document, you can create
 a "merge patch" document, used to describe the changes needed to convert from the
