@@ -1,4 +1,4 @@
-## JSON-Patch
+# JSON-Patch
 `jsonpatch` provides the ability to decode and apply JSON patches against
 documents, as well as generate merge-patches.
 
@@ -9,7 +9,7 @@ as well as create [RFC7396 JSON Merge Patches](https://tools.ietf.org/html/rfc73
 [![Build Status](https://travis-ci.org/evanphx/json-patch.svg?branch=master)](https://travis-ci.org/evanphx/json-patch)
 [![Report Card](https://goreportcard.com/badge/github.com/evanphx/json-patch)](https://goreportcard.com/report/github.com/evanphx/json-patch)
 
-## Get It!
+# Get It!
 
 **Latest and greatest**: 
 ```bash
@@ -21,12 +21,12 @@ go get -u github.com/evanphx/json-patch
 
 (previous versions below `v3` are unavailable)
 
-## Use It!
+# Use It!
 * [Create a merge patch](#create-a-merge-patch)
 * [Create and apply a Patch](#create-and-apply-a-patch)
 * [Comparing JSON documents](#comparing-json-documents)
 
-### Create a merge patch
+## Create a merge patch
 Given both an original JSON document and a modified JSON document, you can create
 a "merge patch" document, used to describe the changes needed to convert from the
 original to the modified.
@@ -60,7 +60,7 @@ $ go run main.go
 {"height":null,"name":"Jane"}
 ```
 
-### Create and apply a Patch
+## Create and apply a Patch
 You can create patch objects using `DecodePatch([]byte)`, which can then 
 be applied against JSON documents.
 
@@ -104,7 +104,7 @@ $ go run main.go
 {"age":24,"name":"Jane"}
 ```
 
-### Comparing JSON documents
+## Comparing JSON documents
 You can install the commandline program `json-patch` which can take multiple 
 JSON patch documents, and be feed a JSON document from `stdin`. It will 
 apply the patch(es) against the document and output the modified doc.
@@ -142,7 +142,7 @@ $ cat document.json | json-patch -p patch.1.json -p patch.2.json
 {"address":"123 Main St","age":"21","name":"Jane"}
 ```
 
-## Help It!
+# Help It!
 Contributions are welcomed! Leave [an issue](https://github.com/evanphx/json-patch/issues)
 or [create a PR](https://github.com/evanphx/json-patch/compare)!
 
