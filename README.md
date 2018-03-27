@@ -9,14 +9,21 @@ as well as create [RFC7396 JSON Merge Patches](https://tools.ietf.org/html/rfc73
 [![Build Status](https://travis-ci.org/evanphx/json-patch.svg?branch=master)](https://travis-ci.org/evanphx/json-patch)
 [![Report Card](https://goreportcard.com/badge/github.com/evanphx/json-patch)](https://goreportcard.com/report/github.com/evanphx/json-patch)
 
+* [Get It!](#get-it)
+* [Use It!](#use-it)
+* [Help It!](#help-it)
+
 ## Get It!
 
-**Latest and greatest**: `go get -u github.com/evanphx/json-patch`
+**Latest and greatest**: 
+```bash
+go get -u github.com/evanphx/json-patch
+```
 
 **Stable Versions**:
 * Version 3: `go get -u gopkg.in/evanphx/json-patch.v3`
 
-(previous versions unavailable)
+(previous versions below `v3` are unavailable)
 
 ## Use It!
 * [Create a merge patch](#create-a-merge-patch)
