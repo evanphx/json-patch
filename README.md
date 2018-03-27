@@ -145,3 +145,12 @@ $ cat document.json | json-patch -p patch.1.json -p patch.2.json
 ## Help It!
 Contributions are welcomed! Leave [an issue](https://github.com/evanphx/json-patch/issues)
 or [create a PR](https://github.com/evanphx/json-patch/compare)!
+
+Contributors can run tests using:
+
+```bash
+go test -cover ./...
+```
+
+Builds for pull requests are tested automatically 
+using [TravisCI](https://travis-ci.org/evanphx/json-patch).
