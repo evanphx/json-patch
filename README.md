@@ -9,10 +9,6 @@ as well as create [RFC7396 JSON Merge Patches](https://tools.ietf.org/html/rfc73
 [![Build Status](https://travis-ci.org/evanphx/json-patch.svg?branch=master)](https://travis-ci.org/evanphx/json-patch)
 [![Report Card](https://goreportcard.com/badge/github.com/evanphx/json-patch)](https://goreportcard.com/report/github.com/evanphx/json-patch)
 
-* [Get It!](#get-it)
-* [Use It!](#use-it)
-* [Help It!](#help-it)
-
 ## Get It!
 
 **Latest and greatest**: 
@@ -145,3 +141,7 @@ $ go install github.com/evanphx/json-patch/cmd/json-patch
 $ cat document.json | json-patch -p patch.1.json -p patch.2.json
 {"address":"123 Main St","age":"21","name":"Jane"}
 ```
+
+## Help It!
+Contributions are welcomed! Leave [an issue](https://github.com/evanphx/json-patch/issues)
+or [create a PR](https://github.com/evanphx/json-patch/compare)!
