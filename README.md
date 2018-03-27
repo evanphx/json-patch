@@ -106,9 +106,11 @@ $ go run main.go
 
 ## Run It!
 ### CLI for comparing JSON documents
-You can install the commandline program `json-patch` which can take multiple 
-JSON patch documents, and be feed a JSON document from `stdin`. It will 
-apply the patch(es) against the document and output the modified doc.
+You can install the commandline program `json-patch`.
+
+This program can take multiple JSON patch documents as arguments, 
+and fed a JSON document from `stdin`. It will apply the patch(es) against 
+the document and output the modified doc.
 
 **patch.1.json**
 ```json
