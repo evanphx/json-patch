@@ -29,7 +29,7 @@ go get -u github.com/evanphx/json-patch
 
 ## Create and apply a merge patch
 Given both an original JSON document and a modified JSON document, you can create
-a [Merge Patche](https://tools.ietf.org/html/rfc7396) document. 
+a [Merge Patch](https://tools.ietf.org/html/rfc7396) document. 
 
 It can describe the changes needed to convert from the original to the 
 modified JSON document.
