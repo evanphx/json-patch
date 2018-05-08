@@ -121,10 +121,6 @@ Modified document: {"age":24,"name":"Jane"}
 ```
 
 ## Comparing JSON documents
-One cannot simply directly compare two JSON strings or byte arrays to determine
-if they are the same. This is because while they may have the same structure,
-whitespace and ordering differences can cause 
-
 Due to potential whitespace and ordering differences, one cannot simply compare
 JSON strings or byte-arrays directly. 
 
