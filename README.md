@@ -138,7 +138,6 @@ import (
 )
 
 func main() {
-	// Let's create a merge patch from these two documents...
 	original := []byte(`{"name": "John", "age": 24, "height": 3.21}`)
 	similar := []byte(`
 		{
