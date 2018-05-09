@@ -1,8 +1,8 @@
 # JSON-Patch
-`jsonpatch` provides the ability to parse and apply
-[RFC6902 JSON patches](http://tools.ietf.org/html/rfc6902) against JSON documents.
-It allows for generating and applying
-[RFC7396 JSON Merge Patches](https://tools.ietf.org/html/rfc7396) as well.
+`jsonpatch` is a library which provides functionallity for both applying
+[RFC6902 JSON patches](http://tools.ietf.org/html/rfc6902) against JSON
+documents, as well as for calculating & applying
+[RFC7396 JSON Merge Patches](https://tools.ietf.org/html/rfc7396).
 
 [![GoDoc](https://godoc.org/github.com/evanphx/json-patch?status.svg)](http://godoc.org/github.com/evanphx/json-patch)
 [![Build Status](https://travis-ci.org/evanphx/json-patch.svg?branch=master)](https://travis-ci.org/evanphx/json-patch)
