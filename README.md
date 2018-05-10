@@ -1,9 +1,7 @@
 # JSON-Patch
-`jsonpatch` provides the ability to decode and apply JSON patches against
-documents, as well as generate merge-patches.
-
-Specifically, this package provides the ability to apply [RFC6902 JSON patches](http://tools.ietf.org/html/rfc6902) 
-as well as create [RFC7396 JSON Merge Patches](https://tools.ietf.org/html/rfc7396).
+`jsonpatch` is a library which provides functionallity for both applying
+[RFC6902 JSON patches](http://tools.ietf.org/html/rfc6902) against documents, as
+well as for calculating & applying [RFC7396 JSON merge patches](https://tools.ietf.org/html/rfc7396).
 
 [![GoDoc](https://godoc.org/github.com/evanphx/json-patch?status.svg)](http://godoc.org/github.com/evanphx/json-patch)
 [![Build Status](https://travis-ci.org/evanphx/json-patch.svg?branch=master)](https://travis-ci.org/evanphx/json-patch)
@@ -22,14 +20,20 @@ go get -u github.com/evanphx/json-patch
 (previous versions below `v3` are unavailable)
 
 # Use It!
-* [Create a merge patch](#create-a-merge-patch)
-* [Create and apply a Patch](#create-and-apply-a-patch)
+* [Create and apply a merge patch](#create-and-apply-a-merge-patch)
+* [Create and apply a JSON Patch](#create-and-apply-a-json-patch)
 * [Comparing JSON documents](#comparing-json-documents)
+* [Combine merge patches](#combine-merge-patches)
 
-## Create a merge patch
+## Create and apply a merge patch
 Given both an original JSON document and a modified JSON document, you can create
-a "merge patch" document, used to describe the changes needed to convert from the
-original to the modified.
+a [Merge Patch](https://tools.ietf.org/html/rfc7396) document. 
+
+It can describe the changes needed to convert from the original to the 
+modified JSON document.
+
+Once you have a merge patch, you can apply it to other JSON documents using the
+`jsonpatch.MergePatch(document, patch)` function.
 
 ```go
 package main
@@ -41,15 +45,22 @@ import (
 )
 
 func main() {
+	// Let's create a merge patch from these two documents...
 	original := []byte(`{"name": "John", "age": 24, "height": 3.21}`)
-	modified := []byte(`{"name": "Jane", "age": 24}`)
+	target := []byte(`{"name": "Jane", "age": 24}`)
 
-	patch, err := jsonpatch.CreateMergePatch(original, modified)
+	patch, err := jsonpatch.CreateMergePatch(original, target)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(string(patch))
+	// Now lets apply the patch against a different JSON document...
+
+	alternative := []byte(`{"name": "Tina", "age": 28, "height": 3.75}`)
+	modifiedAlternative, err := jsonpatch.MergePatch(alternative, patch)
+
+	fmt.Printf("patch document:   %s\n", patch)
+	fmt.Printf("updated alternative doc: %s\n", modifiedAlternative)
 }
 ```
 
@@ -57,10 +68,11 @@ When ran, you get the following output:
 
 ```bash
 $ go run main.go
-{"height":null,"name":"Jane"}
+patch document:   {"height":null,"name":"Jane"}
+updated tina doc: {"age":28,"name":"Jane"}
 ```
 
-## Create and apply a Patch
+## Create and apply a JSON Patch
 You can create patch objects using `DecodePatch([]byte)`, which can then 
 be applied against JSON documents.
 
@@ -77,7 +89,7 @@ import (
 )
 
 func main() {
-	document := []byte(`{"name": "John", "age": 24, "height": 3.21}`)
+	original := []byte(`{"name": "John", "age": 24, "height": 3.21}`)
 	patchJSON := []byte(`[
 		{"op": "replace", "path": "/name", "value": "Jane"},
 		{"op": "remove", "path": "/height"}
@@ -88,12 +100,13 @@ func main() {
 		panic(err)
 	}
 
-	modified, err := patch.Apply(document)
+	modified, err := patch.Apply(original)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(string(modified))
+	fmt.Printf("Original document: %s\n", original)
+	fmt.Printf("Modified document: %s\n", modified)
 }
 ```
 
@@ -101,11 +114,119 @@ When ran, you get the following output:
 
 ```bash
 $ go run main.go
-{"age":24,"name":"Jane"}
+Original document: {"name": "John", "age": 24, "height": 3.21}
+Modified document: {"age":24,"name":"Jane"}
 ```
 
-## Run It!
-### CLI for comparing JSON documents
+## Comparing JSON documents
+Due to potential whitespace and ordering differences, one cannot simply compare
+JSON strings or byte-arrays directly. 
+
+As such, you can instead use `jsonpatch.Equal(document1, document2)` to 
+determine if two JSON documents are _structurally_ equal. This ignores
+whitespace differences, and key-value ordering.
+
+```go
+package main
+
+import (
+	"fmt"
+
+	jsonpatch "github.com/evanphx/json-patch"
+)
+
+func main() {
+	original := []byte(`{"name": "John", "age": 24, "height": 3.21}`)
+	similar := []byte(`
+		{
+			"age": 24,
+			"height": 3.21,
+			"name": "John"
+		}
+	`)
+	different := []byte(`{"name": "Jane", "age": 20, "height": 3.37}`)
+
+	if jsonpatch.Equal(original, similar) {
+		fmt.Println(`"original" is structurally equal to "similar"`)
+	}
+
+	if !jsonpatch.Equal(original, different) {
+		fmt.Println(`"original" is _not_ structurally equal to "similar"`)
+	}
+}
+```
+
+When ran, you get the following output:
+```bash
+$ go run main.go
+"original" is structurally equal to "similar"
+"original" is _not_ structurally equal to "similar"
+```
+
+## Combine merge patches
+Given two JSON merge patch documents, it is possible to combine them into a 
+single merge patch which can describe both set of changes.
+
+The resulting merge patch can be used such that applying it results in a
+document structurally similar as merging each merge patch to the document
+in succession. 
+
+```go
+package main
+
+import (
+	"fmt"
+
+	jsonpatch "github.com/evanphx/json-patch"
+)
+
+func main() {
+	original := []byte(`{"name": "John", "age": 24, "height": 3.21}`)
+
+	nameAndHeight := []byte(`{"height":null,"name":"Jane"}`)
+	ageAndEyes := []byte(`{"age":4.23,"eyes":"blue"}`)
+
+	// Let's combine these merge patch documents...
+	combinedPatch, err := jsonpatch.MergeMergePatches(nameAndHeight, ageAndEyes)
+	if err != nil {
+		panic(err)
+	}
+
+	// Apply each patch individual against the original document
+	withoutCombinedPatch, err := jsonpatch.MergePatch(original, nameAndHeight)
+	if err != nil {
+		panic(err)
+	}
+
+	withoutCombinedPatch, err = jsonpatch.MergePatch(withoutCombinedPatch, ageAndEyes)
+	if err != nil {
+		panic(err)
+	}
+
+	// Apply the combined patch against the original document
+
+	withCombinedPatch, err := jsonpatch.MergePatch(original, combinedPatch)
+	if err != nil {
+		panic(err)
+	}
+
+	// Do both result in the same thing? They should!
+	if jsonpatch.Equal(withCombinedPatch, withoutCombinedPatch) {
+		fmt.Println("Both JSON documents are structurally the same!")
+	}
+
+	fmt.Printf("combined merge patch: %s", combinedPatch)
+}
+```
+
+When ran, you get the following output:
+```bash
+$ go run main.go
+Both JSON documents are structurally the same!
+combined merge patch: {"age":4.23,"eyes":"blue","height":null,"name":"Jane"}
+```
+
+# CLI for comparing JSON documents
 You can install the commandline program `json-patch`.
 
 This program can take multiple JSON patch documents as arguments, 
