@@ -397,6 +397,9 @@ func (d *partialArray) add(key string, val *lazyNode) error {
 		}
 		idx = len(ary) - idx
 	}
+	if idx > len(cur) {
+		return fmt.Errorf("Unable to access invalid index: %d", idx)
+	}
 
 	copy(ary[0:idx], cur[0:idx])
 	ary[idx] = val

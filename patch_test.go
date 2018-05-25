@@ -222,10 +222,13 @@ var BadCases = []BadCase{
 		`{ "foo": ["bar","baz"]}`,
 		`[ { "op": "add", "path": "/foo/-4", "value": "bum"}]`,
 	},
-
 	{
 		`{ "name":{ "foo": "bat", "qux": "bum"}}`,
 		`[ { "op": "replace", "path": "/foo/bar", "value":"baz"}]`,
+	},
+	{
+		`{ "foo": ["bar"]}`,
+		`[ {"op": "add", "path": "/foo/2", "value": "bum"}]`,
 	},
 }
 
