@@ -227,6 +227,10 @@ var BadCases = []BadCase{
 		`{ "name":{ "foo": "bat", "qux": "bum"}}`,
 		`[ { "op": "replace", "path": "/foo/bar", "value":"baz"}]`,
 	},
+	{
+		`{ "foo": ["bar"]}`,
+		`[ {"op": "add", "path": "/foo/2", "value": "bum"}]`,
+	},
 }
 
 func TestAllCases(t *testing.T) {
