@@ -450,7 +450,7 @@ func (p Patch) add(doc *container, op operation) error {
 	con, key := findObject(doc, path)
 
 	if con == nil {
-		return fmt.Errorf("jsonpatch add operation does not apply: doc is missing path: %s", path)
+		return fmt.Errorf("jsonpatch add operation does not apply: doc is missing path: \"%s\"", path)
 	}
 
 	return con.add(key, op.value())
@@ -462,7 +462,7 @@ func (p Patch) remove(doc *container, op operation) error {
 	con, key := findObject(doc, path)
 
 	if con == nil {
-		return fmt.Errorf("jsonpatch remove operation does not apply: doc is missing path: %s", path)
+		return fmt.Errorf("jsonpatch remove operation does not apply: doc is missing path: \"%s\"", path)
 	}
 
 	return con.remove(key)
