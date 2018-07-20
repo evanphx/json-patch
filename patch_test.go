@@ -177,6 +177,26 @@ var Cases = []Case{
 		`{ "foo": []}`,
 		`[ { "op": "add", "path": "/foo/-1", "value": "qux"}]`,
 		`{ "foo": ["qux"]}`,
+  },
+  {
+    `{ "bar": [{"baz": null}]}`,
+		`[ { "op": "replace", "path": "/bar/0/baz", "value": 1 } ]`,
+		`{ "bar": [{"baz": 1}]}`,
+	},
+	{
+		`{ "bar": [{"baz": 1}]}`,
+		`[ { "op": "replace", "path": "/bar/0/baz", "value": null } ]`,
+		`{ "bar": [{"baz": null}]}`,
+	},
+	{
+		`{ "bar": [null]}`,
+		`[ { "op": "replace", "path": "/bar/0", "value": 1 } ]`,
+		`{ "bar": [1]}`,
+	},
+	{
+		`{ "bar": [1]}`,
+		`[ { "op": "replace", "path": "/bar/0", "value": null } ]`,
+		`{ "bar": [null]}`,
 	},
 }
 
