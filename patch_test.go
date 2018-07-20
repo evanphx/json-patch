@@ -177,9 +177,9 @@ var Cases = []Case{
 		`{ "foo": []}`,
 		`[ { "op": "add", "path": "/foo/-1", "value": "qux"}]`,
 		`{ "foo": ["qux"]}`,
-  },
-  {
-    `{ "bar": [{"baz": null}]}`,
+	},
+	{
+		`{ "bar": [{"baz": null}]}`,
 		`[ { "op": "replace", "path": "/bar/0/baz", "value": 1 } ]`,
 		`{ "bar": [{"baz": 1}]}`,
 	},
