@@ -204,7 +204,7 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 }
 
 func (o operation) kind() string {
-	if obj, ok := o["op"]; ok {
+	if obj, ok := o["op"]; ok && obj != nil {
 		var op string
 
 		err := json.Unmarshal(*obj, &op)
@@ -220,7 +220,7 @@ func (o operation) kind() string {
 }
 
 func (o operation) path() string {
-	if obj, ok := o["path"]; ok {
+	if obj, ok := o["path"]; ok && obj != nil {
 		var op string
 
 		err := json.Unmarshal(*obj, &op)
@@ -236,7 +236,7 @@ func (o operation) path() string {
 }
 
 func (o operation) from() string {
-	if obj, ok := o["from"]; ok {
+	if obj, ok := o["from"]; ok && obj != nil{
 		var op string
 
 		err := json.Unmarshal(*obj, &op)
