@@ -236,7 +236,7 @@ func (o operation) path() string {
 }
 
 func (o operation) from() string {
-	if obj, ok := o["from"]; ok && obj != nil{
+	if obj, ok := o["from"]; ok && obj != nil {
 		var op string
 
 		err := json.Unmarshal(*obj, &op)
@@ -534,6 +534,8 @@ func (p Patch) test(doc *container, op operation) error {
 		if op.value().raw == nil {
 			return nil
 		}
+		return fmt.Errorf("Testing value %s failed", path)
+	} else if op.value() == nil {
 		return fmt.Errorf("Testing value %s failed", path)
 	}
 
