@@ -14,6 +14,8 @@ const (
 	eAry
 )
 
+var SupportNegativeIndices bool = true
+
 type lazyNode struct {
 	raw   *json.RawMessage
 	doc   partialDoc
@@ -389,13 +391,20 @@ func (d *partialArray) add(key string, val *lazyNode) error {
 
 	cur := *d
 
-	if idx < -len(ary) || idx >= len(ary) {
+	if idx >= len(ary) {
 		return fmt.Errorf("Unable to access invalid index: %d", idx)
 	}
 
-	if idx < 0 {
-		idx += len(ary)
+	if SupportNegativeIndices {
+		if idx < -len(ary) {
+			return fmt.Errorf("Unable to access invalid index: %d", idx)
+		}
+
+		if idx < 0 {
+			idx += len(ary)
+		}
 	}
+
 	copy(ary[0:idx], cur[0:idx])
 	ary[idx] = val
 	copy(ary[idx+1:], cur[idx:])
@@ -426,11 +435,18 @@ func (d *partialArray) remove(key string) error {
 
 	cur := *d
 
-	if idx < -len(cur) || idx >= len(cur) {
-		return fmt.Errorf("Unable to remove invalid index: %d", idx)
+	if idx >= len(cur) {
+		return fmt.Errorf("Unable to access invalid index: %d", idx)
 	}
-	if idx < 0 {
-		idx += len(cur)
+
+	if SupportNegativeIndices {
+		if idx < -len(cur) {
+			return fmt.Errorf("Unable to access invalid index: %d", idx)
+		}
+
+		if idx < 0 {
+			idx += len(cur)
+		}
 	}
 
 	ary := make([]*lazyNode, len(cur)-1)
