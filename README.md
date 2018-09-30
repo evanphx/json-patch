@@ -28,7 +28,7 @@ go get -u github.com/evanphx/json-patch
 
 # Configuration
 
-There is a single global configuration variable `jsonpatch.SupportNegativeIndices'. This
+There is a single global configuration variable `jsonpatch.SupportNegativeIndices`. This
 defaults to `true` and enables the non-standard practice of allowing negative indices
 to mean indices starting at the end of an array. This functionality can be disabled
 by setting `jsonpatch.SupportNegativeIndices = false`.
