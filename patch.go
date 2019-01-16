@@ -15,6 +15,7 @@ const (
 )
 
 var SupportNegativeIndices bool = true
+var ArraySizeLimit int = 0
 
 type lazyNode struct {
 	raw   *json.RawMessage
@@ -360,6 +361,10 @@ func (d *partialArray) set(key string, val *lazyNode) error {
 		sz = idx + 1
 	}
 
+	if sz > ArraySizeLimit && ArraySizeLimit != 0 {
+		return fmt.Errorf("Unable to create array of size %d, limit is %d", sz, ArraySizeLimit)
+	}
+
 	ary := make([]*lazyNode, sz)
 
 	cur := *d
@@ -387,7 +392,12 @@ func (d *partialArray) add(key string, val *lazyNode) error {
 		return err
 	}
 
-	ary := make([]*lazyNode, len(*d)+1)
+	sz := len(*d) + 1
+	if sz > ArraySizeLimit && ArraySizeLimit != 0 {
+		return fmt.Errorf("Unable to create array of size %d, limit is %d", sz, ArraySizeLimit)
+	}
+
+	ary := make([]*lazyNode, sz)
 
 	cur := *d
 

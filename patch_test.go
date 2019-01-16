@@ -8,6 +8,10 @@ import (
 	"testing"
 )
 
+func init() {
+	ArraySizeLimit = 1000
+}
+
 func reformatJSON(j string) string {
 	buf := new(bytes.Buffer)
 
@@ -271,8 +275,8 @@ var BadCases = []BadCase{
 	{
 		`{ "foo": ["bar"]}`,
 		`[ {"op": "remove", "path": "/foo/-2"}]`,
-  },
-  {
+	},
+	{
 		`{}`,
 		`[ {"op":null,"path":""} ]`,
 	},
@@ -283,6 +287,10 @@ var BadCases = []BadCase{
 	{
 		`{}`,
 		`[ { "op": "copy", "from": null }]`,
+	},
+	{
+		`{ "foo": ["bar"]}`,
+		`[{"op": "copy", "path": "/foo/6666666666", "from": "/"}]`,
 	},
 }
 
