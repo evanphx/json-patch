@@ -175,27 +175,8 @@ var Cases = []Case{
 	},
 	{
 		`{ "foo": ["bar"]}`,
-		`[{"op": "copy", "path": "/foo/10", "from": "/foo/0"}]`,
-		`{
-          "foo": [
-            "bar",
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            "bar"
-          ]
-        }`,
-	},
-	{
-		`{ "foo": ["bar"]}`,
 		`[{"op": "copy", "path": "/foo/0", "from": "/foo"}]`,
-		`{ "foo": [["bar"]]}`,
+		`{ "foo": [["bar"], "bar"]}`,
 	},
 	{
 		`{ "foo": ["bar","qux","baz"]}`,
@@ -317,9 +298,10 @@ var BadCases = []BadCase{
 		`{ "foo": ["bar"]}`,
 		`[{"op": "copy", "path": "/foo/6666666666", "from": "/"}]`,
 	},
+	// Can't copy into an index greater than the size of the array
 	{
 		`{ "foo": ["bar"]}`,
-		`[{"op": "copy", "path": "/foo/11", "from": "/"}]`,
+		`[{"op": "copy", "path": "/foo/2", "from": "/foo/0"}]`,
 	},
 }
 
@@ -354,7 +336,7 @@ func TestAllCases(t *testing.T) {
 		_, err := applyPatch(c.doc, c.patch)
 
 		if err == nil {
-			t.Errorf("Patch should have failed to apply but it did not")
+			t.Errorf("Patch %q should have failed to apply but it did not", c.patch)
 		}
 	}
 }

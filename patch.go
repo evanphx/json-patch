@@ -617,7 +617,7 @@ func (p Patch) copy(doc *container, op operation) error {
 		return err
 	}
 
-	return con.set(key, valCopy)
+	return con.add(key, valCopy)
 }
 
 // Equal indicates if 2 JSON documents have the same structural equality.
