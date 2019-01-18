@@ -8,6 +8,11 @@ import (
 	"testing"
 )
 
+func init() {
+	ArraySizeLimit = 1000
+	ArraySizeAdditionLimit = 10
+}
+
 func reformatJSON(j string) string {
 	buf := new(bytes.Buffer)
 
@@ -169,6 +174,26 @@ var Cases = []Case{
 		`[ { "baz": {"bar": ["qux","baz"], "qux":"bum"}, "foo": {"bar": ["qux","baz"]}}]`,
 	},
 	{
+		`{ "foo": ["bar"]}`,
+		`[{"op": "copy", "path": "/foo/10", "from": "/foo/0"}]`,
+		`{
+          "foo": [
+            "bar",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "bar"
+          ]
+        }`,
+	},
+
+	{
 		`{ "foo": ["bar","qux","baz"]}`,
 		`[ { "op": "remove", "path": "/foo/-2"}]`,
 		`{ "foo": ["bar", "baz"]}`,
@@ -271,8 +296,8 @@ var BadCases = []BadCase{
 	{
 		`{ "foo": ["bar"]}`,
 		`[ {"op": "remove", "path": "/foo/-2"}]`,
-  },
-  {
+	},
+	{
 		`{}`,
 		`[ {"op":null,"path":""} ]`,
 	},
@@ -283,6 +308,14 @@ var BadCases = []BadCase{
 	{
 		`{}`,
 		`[ { "op": "copy", "from": null }]`,
+	},
+	{
+		`{ "foo": ["bar"]}`,
+		`[{"op": "copy", "path": "/foo/6666666666", "from": "/"}]`,
+	},
+	{
+		`{ "foo": ["bar"]}`,
+		`[{"op": "copy", "path": "/foo/11", "from": "/"}]`,
 	},
 }
 
