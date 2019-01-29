@@ -122,6 +122,11 @@ var Cases = []Case{
 		`{ "foo": [ "all", "cows", "eat", "grass" ] }`,
 	},
 	{
+		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
+		`[ { "op": "move", "from": "/foo/1", "path": "/foo/2" } ]`,
+		`{ "foo": [ "all", "cows", "grass", "eat" ] }`,
+	},
+	{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "path": "/child", "value": { "grandchild": { } } } ]`,
 		`{ "foo": "bar", "child": { "grandchild": { } } }`,
@@ -321,6 +326,11 @@ var BadCases = []BadCase{
 		// size, so each copy operation increases the size by 51 bytes.
 		`[ { "op": "copy", "path": "/foo/-", "from": "/foo/1" },
 		   { "op": "copy", "path": "/foo/-", "from": "/foo/1" }]`,
+	},
+	// Can't move into an index greater than or equal to the size of the array
+	{
+		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
+		`[ { "op": "move", "from": "/foo/1", "path": "/foo/4" } ]`,
 	},
 }
 

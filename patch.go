@@ -565,7 +565,7 @@ func (p Patch) move(doc *container, op operation) error {
 		return fmt.Errorf("jsonpatch move operation does not apply: doc is missing destination path: %s", path)
 	}
 
-	return con.set(key, val)
+	return con.add(key, val)
 }
 
 func (p Patch) test(doc *container, op operation) error {
