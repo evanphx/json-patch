@@ -192,7 +192,11 @@ var Cases = []Case{
           ]
         }`,
 	},
-
+	{
+		`{ "foo": ["bar"]}`,
+		`[{"op": "copy", "path": "/foo/0", "from": "/foo"}]`,
+		`{ "foo": [["bar"]]}`,
+	},
 	{
 		`{ "foo": ["bar","qux","baz"]}`,
 		`[ { "op": "remove", "path": "/foo/-2"}]`,

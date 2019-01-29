@@ -65,6 +65,19 @@ func (n *lazyNode) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func deepCopy(src *lazyNode) (*lazyNode, error) {
+	if src == nil {
+		return nil, nil
+	}
+	a, err := src.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	ra := make(json.RawMessage, len(a))
+	copy(ra, a)
+	return newLazyNode(&ra), nil
+}
+
 func (n *lazyNode) intoDoc() (*partialDoc, error) {
 	if n.which == eDoc {
 		return &n.doc, nil
@@ -599,7 +612,12 @@ func (p Patch) copy(doc *container, op operation) error {
 		return fmt.Errorf("jsonpatch copy operation does not apply: doc is missing destination path: %s", path)
 	}
 
-	return con.set(key, val)
+	valCopy, err := deepCopy(val)
+	if err != nil {
+		return err
+	}
+
+	return con.set(key, valCopy)
 }
 
 // Equal indicates if 2 JSON documents have the same structural equality.
