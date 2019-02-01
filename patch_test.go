@@ -11,6 +11,7 @@ import (
 func init() {
 	ArraySizeLimit = 1000
 	ArraySizeAdditionLimit = 10
+	AccumulatedCopySizeLimit = 100
 }
 
 func reformatJSON(j string) string {
@@ -50,6 +51,14 @@ func applyPatch(doc, patch string) (string, error) {
 
 type Case struct {
 	doc, patch, result string
+}
+
+func repeatedA(r int) string {
+	var s string
+	for i := 0; i < r; i++ {
+		s += "A"
+	}
+	return s
 }
 
 var Cases = []Case{
@@ -208,6 +217,14 @@ var Cases = []Case{
 		`[ { "op": "replace", "path": "/bar/0", "value": null } ]`,
 		`{ "bar": [null]}`,
 	},
+	{
+		fmt.Sprintf(`{ "foo": ["A", %q] }`, repeatedA(48)),
+		// The wrapping quotes around 'A's are included in the copy
+		// size, so each copy operation increases the size by 50 bytes.
+		`[ { "op": "copy", "path": "/foo/-", "from": "/foo/1" },
+		   { "op": "copy", "path": "/foo/-", "from": "/foo/1" }]`,
+		fmt.Sprintf(`{ "foo": ["A", %q, %q, %q] }`, repeatedA(48), repeatedA(48), repeatedA(48)),
+	},
 }
 
 type BadCase struct {
@@ -302,6 +319,14 @@ var BadCases = []BadCase{
 	{
 		`{ "foo": ["bar"]}`,
 		`[{"op": "copy", "path": "/foo/2", "from": "/foo/0"}]`,
+	},
+	// Accumulated copy size cannot exceed AccumulatedCopySizeLimit.
+	{
+		fmt.Sprintf(`{ "foo": ["A", %q] }`, repeatedA(49)),
+		// The wrapping quotes around 'A's are included in the copy
+		// size, so each copy operation increases the size by 51 bytes.
+		`[ { "op": "copy", "path": "/foo/-", "from": "/foo/1" },
+		   { "op": "copy", "path": "/foo/-", "from": "/foo/1" }]`,
 	},
 }
 
