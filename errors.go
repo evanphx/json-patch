@@ -19,3 +19,20 @@ func NewAccumulatedCopySizeError(l, a int64) *AccumulatedCopySizeError {
 func (a *AccumulatedCopySizeError) Error() string {
 	return fmt.Sprintf("Unable to complete the copy, the accumulated size increase of copy is %d, exceeding the limit %d", a.accumulated, a.limit)
 }
+
+// ArraySizeError is an error type returned when the array size has exceeded
+// the limit.
+type ArraySizeError struct {
+	limit int
+	size  int
+}
+
+// NewArraySizeError returns an ArraySizeError.
+func NewArraySizeError(l, s int) *ArraySizeError {
+	return &ArraySizeError{limit: l, size: s}
+}
+
+// Error implements the error interface.
+func (a *ArraySizeError) Error() string {
+	return fmt.Sprintf("Unable to create array of size %d, limit is %d", a.size, a.limit)
+}

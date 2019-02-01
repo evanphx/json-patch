@@ -390,7 +390,7 @@ func (d *partialArray) set(key string, val *lazyNode) error {
 	}
 
 	if ArraySizeLimit > 0 && sz > ArraySizeLimit {
-		return fmt.Errorf("Unable to create array of size %d, limit is %d", sz, ArraySizeLimit)
+		return NewArraySizeError(ArraySizeLimit, sz)
 	}
 
 	ary := make([]*lazyNode, sz)
