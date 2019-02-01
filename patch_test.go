@@ -335,22 +335,19 @@ var BadCases = []BadCase{
 }
 
 // This is not thread safe, so we cannot run patch tests in parallel.
-func configureGlobals(arraySizeLimit, arraySizeAdditionLimit int, accumulatedCopySizeLimit int64) func() {
+func configureGlobals(arraySizeLimit int, accumulatedCopySizeLimit int64) func() {
 	oldArraySizeLimit := ArraySizeLimit
-	oldArraySizeAdditionLimit := ArraySizeAdditionLimit
 	oldAccumulatedCopySizeLimit := AccumulatedCopySizeLimit
 	ArraySizeLimit = arraySizeLimit
-	ArraySizeAdditionLimit = arraySizeAdditionLimit
 	AccumulatedCopySizeLimit = accumulatedCopySizeLimit
 	return func() {
 		ArraySizeLimit = oldArraySizeLimit
-		ArraySizeAdditionLimit = oldArraySizeAdditionLimit
 		AccumulatedCopySizeLimit = oldAccumulatedCopySizeLimit
 	}
 }
 
 func TestAllCases(t *testing.T) {
-	defer configureGlobals(1000, 10, int64(100))()
+	defer configureGlobals(1000, int64(100))()
 	for _, c := range Cases {
 		out, err := applyPatch(c.doc, c.patch)
 
