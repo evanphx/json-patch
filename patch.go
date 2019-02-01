@@ -19,7 +19,6 @@ var (
 	// allowing negative indices to mean indices starting at the end of an array.
 	// Default to true.
 	SupportNegativeIndices bool = true
-	ArraySizeLimit         int  = 0
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
 	// "copy" operations in a patch.
 	AccumulatedCopySizeLimit int64 = 0
@@ -390,9 +389,6 @@ func (d *partialArray) add(key string, val *lazyNode) error {
 	}
 
 	sz := len(*d) + 1
-	if ArraySizeLimit > 0 && sz > ArraySizeLimit {
-		return fmt.Errorf("Unable to create array of size %d, limit is %d", sz, ArraySizeLimit)
-	}
 
 	ary := make([]*lazyNode, sz)
 
