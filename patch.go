@@ -14,9 +14,17 @@ const (
 	eAry
 )
 
-var SupportNegativeIndices bool = true
-var ArraySizeLimit int = 0
-var ArraySizeAdditionLimit int = 0
+var (
+	// SupportNegativeIndices decides whether to support non-standard practice of
+	// allowing negative indices to mean indices starting at the end of an array.
+	// Default to true.
+	SupportNegativeIndices bool = true
+	ArraySizeLimit         int  = 0
+	ArraySizeAdditionLimit int  = 0
+	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
+	// "copy" operations in a patch.
+	AccumulatedCopySizeLimit int64 = 0
+)
 
 type lazyNode struct {
 	raw   *json.RawMessage
@@ -65,17 +73,18 @@ func (n *lazyNode) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func deepCopy(src *lazyNode) (*lazyNode, error) {
+func deepCopy(src *lazyNode) (*lazyNode, int, error) {
 	if src == nil {
-		return nil, nil
+		return nil, 0, nil
 	}
 	a, err := src.MarshalJSON()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	ra := make(json.RawMessage, len(a))
+	sz := len(a)
+	ra := make(json.RawMessage, sz)
 	copy(ra, a)
-	return newLazyNode(&ra), nil
+	return newLazyNode(&ra), sz, nil
 }
 
 func (n *lazyNode) intoDoc() (*partialDoc, error) {
@@ -381,7 +390,7 @@ func (d *partialArray) set(key string, val *lazyNode) error {
 	}
 
 	if ArraySizeLimit > 0 && sz > ArraySizeLimit {
-		return fmt.Errorf("Unable to create array of size %d, limit is %d", sz, ArraySizeLimit)
+		return NewArraySizeError(ArraySizeLimit, sz)
 	}
 
 	ary := make([]*lazyNode, sz)
@@ -590,7 +599,7 @@ func (p Patch) test(doc *container, op operation) error {
 	return fmt.Errorf("Testing value %s failed", path)
 }
 
-func (p Patch) copy(doc *container, op operation) error {
+func (p Patch) copy(doc *container, op operation, accumulatedCopySize *int64) error {
 	from := op.from()
 
 	con, key := findObject(doc, from)
@@ -612,9 +621,13 @@ func (p Patch) copy(doc *container, op operation) error {
 		return fmt.Errorf("jsonpatch copy operation does not apply: doc is missing destination path: %s", path)
 	}
 
-	valCopy, err := deepCopy(val)
+	valCopy, sz, err := deepCopy(val)
 	if err != nil {
 		return err
+	}
+	(*accumulatedCopySize) += int64(sz)
+	if AccumulatedCopySizeLimit > 0 && *accumulatedCopySize > AccumulatedCopySizeLimit {
+		return NewAccumulatedCopySizeError(AccumulatedCopySizeLimit, *accumulatedCopySize)
 	}
 
 	return con.add(key, valCopy)
@@ -670,6 +683,8 @@ func (p Patch) ApplyIndent(doc []byte, indent string) ([]byte, error) {
 
 	err = nil
 
+	var accumulatedCopySize int64
+
 	for _, op := range p {
 		switch op.kind() {
 		case "add":
@@ -683,7 +698,7 @@ func (p Patch) ApplyIndent(doc []byte, indent string) ([]byte, error) {
 		case "test":
 			err = p.test(&pd, op)
 		case "copy":
-			err = p.copy(&pd, op)
+			err = p.copy(&pd, op, &accumulatedCopySize)
 		default:
 			err = fmt.Errorf("Unexpected kind: %s", op.kind())
 		}
