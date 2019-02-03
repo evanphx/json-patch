@@ -19,8 +19,6 @@ var (
 	// allowing negative indices to mean indices starting at the end of an array.
 	// Default to true.
 	SupportNegativeIndices bool = true
-	ArraySizeLimit         int  = 0
-	ArraySizeAdditionLimit int  = 0
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
 	// "copy" operations in a patch.
 	AccumulatedCopySizeLimit int64 = 0
@@ -368,44 +366,14 @@ func (d *partialDoc) remove(key string) error {
 	return nil
 }
 
+// set should only be used to implement the "replace" operation, so "key" must
+// be an already existing index in "d".
 func (d *partialArray) set(key string, val *lazyNode) error {
-	if key == "-" {
-		*d = append(*d, val)
-		return nil
-	}
-
 	idx, err := strconv.Atoi(key)
 	if err != nil {
 		return err
 	}
-
-	sz := len(*d)
-
-	if diff := idx + 1 - sz; ArraySizeAdditionLimit > 0 && diff > ArraySizeAdditionLimit {
-		return fmt.Errorf("Unable to increase the array size by %d, the limit is %d", diff, ArraySizeAdditionLimit)
-	}
-
-	if idx+1 > sz {
-		sz = idx + 1
-	}
-
-	if ArraySizeLimit > 0 && sz > ArraySizeLimit {
-		return NewArraySizeError(ArraySizeLimit, sz)
-	}
-
-	ary := make([]*lazyNode, sz)
-
-	cur := *d
-
-	copy(ary, cur)
-
-	if idx >= len(ary) {
-		return fmt.Errorf("Unable to access invalid index: %d", idx)
-	}
-
-	ary[idx] = val
-
-	*d = ary
+	(*d)[idx] = val
 	return nil
 }
 
@@ -421,9 +389,6 @@ func (d *partialArray) add(key string, val *lazyNode) error {
 	}
 
 	sz := len(*d) + 1
-	if ArraySizeLimit > 0 && sz > ArraySizeLimit {
-		return fmt.Errorf("Unable to create array of size %d, limit is %d", sz, ArraySizeLimit)
-	}
 
 	ary := make([]*lazyNode, sz)
 
@@ -565,7 +530,7 @@ func (p Patch) move(doc *container, op operation) error {
 		return fmt.Errorf("jsonpatch move operation does not apply: doc is missing destination path: %s", path)
 	}
 
-	return con.set(key, val)
+	return con.add(key, val)
 }
 
 func (p Patch) test(doc *container, op operation) error {
