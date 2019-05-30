@@ -537,7 +537,7 @@ func (p Patch) replace(doc *container, op Operation) error {
 func (p Patch) move(doc *container, op Operation) error {
 	from, err := op.From()
 	if err != nil {
-		return fmt.Errorf("jsonpatch _ operation failed to decode from: %s", err)
+		return fmt.Errorf("jsonpatch move operation failed to decode from: %s", err)
 	}
 
 	con, key := findObject(doc, from)
@@ -558,7 +558,7 @@ func (p Patch) move(doc *container, op Operation) error {
 
 	path, err := op.Path()
 	if err != nil {
-		return fmt.Errorf("jsonpatch _ operation failed to decode path: %s", err)
+		return fmt.Errorf("jsonpatch move operation failed to decode path: %s", err)
 	}
 
 	con, key = findObject(doc, path)
@@ -573,7 +573,7 @@ func (p Patch) move(doc *container, op Operation) error {
 func (p Patch) test(doc *container, op Operation) error {
 	path, err := op.Path()
 	if err != nil {
-		return fmt.Errorf("jsonpatch _ operation failed to decode path: %s", err)
+		return fmt.Errorf("jsonpatch test operation failed to decode path: %s", err)
 	}
 
 	con, key := findObject(doc, path)
@@ -607,7 +607,7 @@ func (p Patch) test(doc *container, op Operation) error {
 func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64) error {
 	from, err := op.From()
 	if err != nil {
-		return fmt.Errorf("jsonpatch _ operation failed to decode from: %s", err)
+		return fmt.Errorf("jsonpatch copy operation failed to decode from: %s", err)
 	}
 
 	con, key := findObject(doc, from)
@@ -623,7 +623,7 @@ func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64) er
 
 	path, err := op.Path()
 	if err != nil {
-		return fmt.Errorf("jsonpatch _ operation failed to decode path: %s", err)
+		return fmt.Errorf("jsonpatch copy operation failed to decode path: %s", err)
 	}
 
 	con, key = findObject(doc, path)
