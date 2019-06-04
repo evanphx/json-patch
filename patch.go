@@ -19,10 +19,10 @@ var (
 	// SupportNegativeIndices decides whether to support non-standard practice of
 	// allowing negative indices to mean indices starting at the end of an array.
 	// Default to true.
-	SupportNegativeIndices = true
+	SupportNegativeIndices bool = true
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
 	// "copy" operations in a patch.
-	AccumulatedCopySizeLimit int64
+	AccumulatedCopySizeLimit int64 = 0
 )
 
 type lazyNode struct {
