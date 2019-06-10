@@ -3,10 +3,11 @@ package jsonpatch
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -23,6 +24,14 @@ var (
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
 	// "copy" operations in a patch.
 	AccumulatedCopySizeLimit int64 = 0
+)
+
+var (
+	ErrTestFailed   = errors.New("test failed")
+	ErrMissing      = errors.New("missing value")
+	ErrUnknownType  = errors.New("unknown object type")
+	ErrInvalid      = errors.New("invalid state detected")
+	ErrInvalidIndex = errors.New("invalid index referenced")
 )
 
 type lazyNode struct {
@@ -61,7 +70,7 @@ func (n *lazyNode) MarshalJSON() ([]byte, error) {
 	case eAry:
 		return json.Marshal(n.ary)
 	default:
-		return nil, fmt.Errorf("Unknown type")
+		return nil, ErrUnknownType
 	}
 }
 
@@ -93,7 +102,7 @@ func (n *lazyNode) intoDoc() (*partialDoc, error) {
 	}
 
 	if n.raw == nil {
-		return nil, fmt.Errorf("Unable to unmarshal nil pointer as partial document")
+		return nil, ErrInvalid
 	}
 
 	err := json.Unmarshal(*n.raw, &n.doc)
@@ -112,7 +121,7 @@ func (n *lazyNode) intoAry() (*partialArray, error) {
 	}
 
 	if n.raw == nil {
-		return nil, fmt.Errorf("Unable to unmarshal nil pointer as partial array")
+		return nil, ErrInvalid
 	}
 
 	err := json.Unmarshal(*n.raw, &n.ary)
@@ -260,7 +269,7 @@ func (o Operation) Path() (string, error) {
 		return op, nil
 	}
 
-	return "unknown", errors.New("operation missing path field")
+	return "unknown", errors.Wrapf(ErrMissing, "operation missing path field")
 }
 
 // From reads the "from" field of the Operation.
@@ -277,7 +286,7 @@ func (o Operation) From() (string, error) {
 		return op, nil
 	}
 
-	return "unknown", errors.New("operation missing from field")
+	return "unknown", errors.Wrapf(ErrMissing, "operation, missing from field")
 }
 
 func (o Operation) value() *lazyNode {
@@ -302,7 +311,7 @@ func (o Operation) ValueInterface() (interface{}, error) {
 		return v, nil
 	}
 
-	return nil, errors.New("operation missing value field")
+	return nil, errors.Wrapf(ErrMissing, "operation, missing value field")
 }
 
 func isArray(buf []byte) bool {
@@ -381,7 +390,7 @@ func (d *partialDoc) get(key string) (*lazyNode, error) {
 func (d *partialDoc) remove(key string) error {
 	_, ok := (*d)[key]
 	if !ok {
-		return fmt.Errorf("Unable to remove nonexistent key: %s", key)
+		return errors.Wrapf(ErrMissing, "Unable to remove nonexistent key: %s", key)
 	}
 
 	delete(*d, key)
@@ -407,7 +416,7 @@ func (d *partialArray) add(key string, val *lazyNode) error {
 
 	idx, err := strconv.Atoi(key)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "value was not a proper array index: '%s'", key)
 	}
 
 	sz := len(*d) + 1
@@ -417,12 +426,12 @@ func (d *partialArray) add(key string, val *lazyNode) error {
 	cur := *d
 
 	if idx >= len(ary) {
-		return fmt.Errorf("Unable to access invalid index: %d", idx)
+		return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 	}
 
 	if SupportNegativeIndices {
 		if idx < -len(ary) {
-			return fmt.Errorf("Unable to access invalid index: %d", idx)
+			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 		}
 
 		if idx < 0 {
@@ -446,7 +455,7 @@ func (d *partialArray) get(key string) (*lazyNode, error) {
 	}
 
 	if idx >= len(*d) {
-		return nil, fmt.Errorf("Unable to access invalid index: %d", idx)
+		return nil, errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 	}
 
 	return (*d)[idx], nil
@@ -461,12 +470,12 @@ func (d *partialArray) remove(key string) error {
 	cur := *d
 
 	if idx >= len(cur) {
-		return fmt.Errorf("Unable to access invalid index: %d", idx)
+		return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 	}
 
 	if SupportNegativeIndices {
 		if idx < -len(cur) {
-			return fmt.Errorf("Unable to access invalid index: %d", idx)
+			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 		}
 
 		if idx < 0 {
@@ -487,161 +496,186 @@ func (d *partialArray) remove(key string) error {
 func (p Patch) add(doc *container, op Operation) error {
 	path, err := op.Path()
 	if err != nil {
-		return fmt.Errorf("jsonpatch add operation failed to decode path: %s", err)
+		return errors.Wrapf(ErrMissing, "add operation failed to decode path")
 	}
 
 	con, key := findObject(doc, path)
 
 	if con == nil {
-		return fmt.Errorf("jsonpatch add operation does not apply: doc is missing path: \"%s\"", path)
+		return errors.Wrapf(ErrMissing, "add operation does not apply: doc is missing path: \"%s\"", path)
 	}
 
-	return con.add(key, op.value())
+	err = con.add(key, op.value())
+	if err != nil {
+		return errors.Wrapf(err, "error in add for path: '%s'", path)
+	}
+
+	return nil
 }
 
 func (p Patch) remove(doc *container, op Operation) error {
 	path, err := op.Path()
 	if err != nil {
-		return fmt.Errorf("jsonpatch remove operation failed to decode path: %s", err)
+		return errors.Wrapf(ErrMissing, "remove operation failed to decode path")
 	}
 
 	con, key := findObject(doc, path)
 
 	if con == nil {
-		return fmt.Errorf("jsonpatch remove operation does not apply: doc is missing path: \"%s\"", path)
+		return errors.Wrapf(ErrMissing, "remove operation does not apply: doc is missing path: \"%s\"", path)
 	}
 
-	return con.remove(key)
+	err = con.remove(key)
+	if err != nil {
+		return errors.Wrapf(err, "error in remove for path: '%s'", path)
+	}
+
+	return nil
 }
 
 func (p Patch) replace(doc *container, op Operation) error {
 	path, err := op.Path()
 	if err != nil {
-		return fmt.Errorf("jsonpatch replace operation failed to decode path: %s", err)
+		return errors.Wrapf(err, "replace operation failed to decode path")
 	}
 
 	con, key := findObject(doc, path)
 
 	if con == nil {
-		return fmt.Errorf("jsonpatch replace operation does not apply: doc is missing path: %s", path)
+		return errors.Wrapf(ErrMissing, "replace operation does not apply: doc is missing path: %s", path)
 	}
 
 	_, ok := con.get(key)
 	if ok != nil {
-		return fmt.Errorf("jsonpatch replace operation does not apply: doc is missing key: %s", path)
+		return errors.Wrapf(ErrMissing, "replace operation does not apply: doc is missing key: %s", path)
 	}
 
-	return con.set(key, op.value())
+	err = con.set(key, op.value())
+	if err != nil {
+		return errors.Wrapf(err, "error in remove for path: '%s'", path)
+	}
+
+	return nil
 }
 
 func (p Patch) move(doc *container, op Operation) error {
 	from, err := op.From()
 	if err != nil {
-		return fmt.Errorf("jsonpatch move operation failed to decode from: %s", err)
+		return errors.Wrapf(err, "move operation failed to decode from")
 	}
 
 	con, key := findObject(doc, from)
 
 	if con == nil {
-		return fmt.Errorf("jsonpatch move operation does not apply: doc is missing from path: %s", from)
+		return errors.Wrapf(ErrMissing, "move operation does not apply: doc is missing from path: %s", from)
 	}
 
 	val, err := con.get(key)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in move for path: '%s'", key)
 	}
 
 	err = con.remove(key)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in move for path: '%s'", key)
 	}
 
 	path, err := op.Path()
 	if err != nil {
-		return fmt.Errorf("jsonpatch move operation failed to decode path: %s", err)
+		return errors.Wrapf(err, "move operation failed to decode path")
 	}
 
 	con, key = findObject(doc, path)
 
 	if con == nil {
-		return fmt.Errorf("jsonpatch move operation does not apply: doc is missing destination path: %s", path)
+		return errors.Wrapf(ErrMissing, "move operation does not apply: doc is missing destination path: %s", path)
 	}
 
-	return con.add(key, val)
+	err = con.add(key, val)
+	if err != nil {
+		return errors.Wrapf(err, "error in move for path: '%s'", path)
+	}
+
+	return nil
 }
 
 func (p Patch) test(doc *container, op Operation) error {
 	path, err := op.Path()
 	if err != nil {
-		return fmt.Errorf("jsonpatch test operation failed to decode path: %s", err)
+		return errors.Wrapf(err, "test operation failed to decode path")
 	}
 
 	con, key := findObject(doc, path)
 
 	if con == nil {
-		return fmt.Errorf("jsonpatch test operation does not apply: is missing path: %s", path)
+		return errors.Wrapf(ErrMissing, "test operation does not apply: is missing path: %s", path)
 	}
 
 	val, err := con.get(key)
-
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in test for path: '%s'", path)
 	}
 
 	if val == nil {
 		if op.value().raw == nil {
 			return nil
 		}
-		return fmt.Errorf("Testing value %s failed", path)
+		return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
 	} else if op.value() == nil {
-		return fmt.Errorf("Testing value %s failed", path)
+		return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
 	}
 
 	if val.equal(op.value()) {
 		return nil
 	}
 
-	return fmt.Errorf("Testing value %s failed", path)
+	return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
 }
 
 func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64) error {
 	from, err := op.From()
 	if err != nil {
-		return fmt.Errorf("jsonpatch copy operation failed to decode from: %s", err)
+		return errors.Wrapf(err, "copy operation failed to decode from")
 	}
 
 	con, key := findObject(doc, from)
 
 	if con == nil {
-		return fmt.Errorf("jsonpatch copy operation does not apply: doc is missing from path: %s", from)
+		return errors.Wrapf(ErrMissing, "copy operation does not apply: doc is missing from path: %s", from)
 	}
 
 	val, err := con.get(key)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in copy for from: '%s'", from)
 	}
 
 	path, err := op.Path()
 	if err != nil {
-		return fmt.Errorf("jsonpatch copy operation failed to decode path: %s", err)
+		return errors.Wrapf(ErrMissing, "copy operation failed to decode path")
 	}
 
 	con, key = findObject(doc, path)
 
 	if con == nil {
-		return fmt.Errorf("jsonpatch copy operation does not apply: doc is missing destination path: %s", path)
+		return errors.Wrapf(ErrMissing, "copy operation does not apply: doc is missing destination path: %s", path)
 	}
 
 	valCopy, sz, err := deepCopy(val)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error while performing deep copy")
 	}
+
 	(*accumulatedCopySize) += int64(sz)
 	if AccumulatedCopySizeLimit > 0 && *accumulatedCopySize > AccumulatedCopySizeLimit {
 		return NewAccumulatedCopySizeError(AccumulatedCopySizeLimit, *accumulatedCopySize)
 	}
 
-	return con.add(key, valCopy)
+	err = con.add(key, valCopy)
+	if err != nil {
+		return errors.Wrapf(err, "error while adding value during copy")
+	}
+
+	return nil
 }
 
 // Equal indicates if 2 JSON documents have the same structural equality.
