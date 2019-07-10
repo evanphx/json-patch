@@ -38,6 +38,12 @@ go get -u github.com/evanphx/json-patch
   which limits the total size increase in bytes caused by "copy" operations in a
   patch. It defaults to 0, which means there is no limit.
 
+* To have jsonpatch use a custom JSON library for `Marshal()`, `Unmarshal()`,
+  and `MarshalIndent()` calls, use `jsonpatch.SetAPI(otherJsonApi)`,
+  which will configure jsonpatch to globally use `otherJsonApi` for these
+  operations. `otherJsonApi` must implement the three methods in the `API` interface.
+  To reset to using the standard JSON library, use `jsonpatch.ResetAPI()`.
+
 ## Create and apply a merge patch
 Given both an original JSON document and a modified JSON document, you can create
 a [Merge Patch](https://tools.ietf.org/html/rfc7396) document. 

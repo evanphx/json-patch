@@ -2,10 +2,11 @@ package jsonpatch
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
+
+	json "github.com/evanphx/json-patch/json"
 )
 
 func reformatJSON(j string) string {

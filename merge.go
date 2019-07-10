@@ -2,9 +2,11 @@ package jsonpatch
 
 import (
 	"bytes"
-	"encoding/json"
+	stdlib "encoding/json"
 	"fmt"
 	"reflect"
+
+	json "github.com/evanphx/json-patch/json"
 )
 
 func merge(cur, patch *lazyNode, mergeMerge bool) *lazyNode {
@@ -113,11 +115,11 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 
 	patchErr := json.Unmarshal(patchData, patch)
 
-	if _, ok := docErr.(*json.SyntaxError); ok {
+	if _, ok := docErr.(*stdlib.SyntaxError); ok {
 		return nil, errBadJSONDoc
 	}
 
-	if _, ok := patchErr.(*json.SyntaxError); ok {
+	if _, ok := patchErr.(*stdlib.SyntaxError); ok {
 		return nil, errBadJSONPatch
 	}
 
@@ -228,8 +230,8 @@ func createObjectMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 // pair of JSON documents provided in the arrays.
 // Arrays of mismatched sizes will result in an error.
 func createArrayMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
-	originalDocs := []json.RawMessage{}
-	modifiedDocs := []json.RawMessage{}
+	originalDocs := []stdlib.RawMessage{}
+	modifiedDocs := []stdlib.RawMessage{}
 
 	err := json.Unmarshal(originalJSON, &originalDocs)
 	if err != nil {
@@ -246,7 +248,7 @@ func createArrayMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 		return nil, errBadJSONDoc
 	}
 
-	result := []json.RawMessage{}
+	result := []stdlib.RawMessage{}
 	for i := 0; i < len(originalDocs); i++ {
 		original := originalDocs[i]
 		modified := modifiedDocs[i]
@@ -256,7 +258,7 @@ func createArrayMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 			return nil, err
 		}
 
-		result = append(result, json.RawMessage(patch))
+		result = append(result, stdlib.RawMessage(patch))
 	}
 
 	return json.Marshal(result)

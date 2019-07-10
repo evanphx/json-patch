@@ -2,12 +2,13 @@ package jsonpatch
 
 import (
 	"bytes"
-	"encoding/json"
+	stdlib "encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
+	json "github.com/evanphx/json-patch/json"
 )
 
 const (
@@ -35,14 +36,14 @@ var (
 )
 
 type lazyNode struct {
-	raw   *json.RawMessage
+	raw   *stdlib.RawMessage
 	doc   partialDoc
 	ary   partialArray
 	which int
 }
 
 // Operation is a single JSON-Patch step, such as a single 'add' operation.
-type Operation map[string]*json.RawMessage
+type Operation map[string]*stdlib.RawMessage
 
 // Patch is an ordered collection of Operations.
 type Patch []Operation
@@ -57,7 +58,7 @@ type container interface {
 	remove(key string) error
 }
 
-func newLazyNode(raw *json.RawMessage) *lazyNode {
+func newLazyNode(raw *stdlib.RawMessage) *lazyNode {
 	return &lazyNode{raw: raw, doc: nil, ary: nil, which: eRaw}
 }
 
@@ -75,7 +76,7 @@ func (n *lazyNode) MarshalJSON() ([]byte, error) {
 }
 
 func (n *lazyNode) UnmarshalJSON(data []byte) error {
-	dest := make(json.RawMessage, len(data))
+	dest := make(stdlib.RawMessage, len(data))
 	copy(dest, data)
 	n.raw = &dest
 	n.which = eRaw
@@ -91,7 +92,7 @@ func deepCopy(src *lazyNode) (*lazyNode, int, error) {
 		return nil, 0, err
 	}
 	sz := len(a)
-	ra := make(json.RawMessage, sz)
+	ra := make(stdlib.RawMessage, sz)
 	copy(ra, a)
 	return newLazyNode(&ra), sz, nil
 }
@@ -680,11 +681,11 @@ func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64) er
 
 // Equal indicates if 2 JSON documents have the same structural equality.
 func Equal(a, b []byte) bool {
-	ra := make(json.RawMessage, len(a))
+	ra := make(stdlib.RawMessage, len(a))
 	copy(ra, a)
 	la := newLazyNode(&ra)
 
-	rb := make(json.RawMessage, len(b))
+	rb := make(stdlib.RawMessage, len(b))
 	copy(rb, b)
 	lb := newLazyNode(&rb)
 
