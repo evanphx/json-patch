@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,9 @@ var (
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
 	// "copy" operations in a patch.
 	AccumulatedCopySizeLimit int64 = 0
+	// Regular expression that describes format for dynamic expressions used in
+	// JsonPointer enhancement.
+	keyExpressionPattern = regexp.MustCompile(`^{'(.*)':'(.*)'}$`)
 )
 
 var (
@@ -397,10 +401,45 @@ func (d *partialDoc) remove(key string) error {
 	return nil
 }
 
+func (d *partialArray) getIdxByKeyExpression(key string) (int, error) {
+	match := keyExpressionPattern.FindStringSubmatch(key)
+	if len(match) != 3 {
+		return 0, errors.Wrapf(ErrInvalid, "Invalid key element found: %s", key)
+	}
+	expKey, expVal := match[1], match[2]
+	for idx, next := range *d {
+		if isArray(*next.raw) {
+			continue
+		}
+		doc, err := next.intoDoc()
+		if err != nil {
+			return 0, errors.Wrapf(ErrMissing, "Broken element at index %d: %s", idx, err)
+		}
+		docVal, err := doc.get(expKey)
+		if err != nil || docVal == nil {
+			continue
+		}
+
+		if v, ok := docVal.raw.MarshalJSON(); ok == nil && strings.Trim(string(v), `"`) == expVal {
+			return idx, nil
+		}
+	}
+
+	return 0, errors.Wrapf(ErrMissing, "No documents found matching search expression: %s", key)
+}
+
 // set should only be used to implement the "replace" operation, so "key" must
 // be an already existing index in "d".
 func (d *partialArray) set(key string, val *lazyNode) error {
-	idx, err := strconv.Atoi(key)
+	var (
+		idx int
+		err error
+	)
+	if strings.HasPrefix(key, "{") {
+		idx, err = d.getIdxByKeyExpression(key)
+	} else {
+		idx, err = strconv.Atoi(key)
+	}
 	if err != nil {
 		return err
 	}
@@ -413,8 +452,15 @@ func (d *partialArray) add(key string, val *lazyNode) error {
 		*d = append(*d, val)
 		return nil
 	}
-
-	idx, err := strconv.Atoi(key)
+	var (
+		idx int
+		err error
+	)
+	if strings.HasPrefix(key, "{") {
+		idx, err = d.getIdxByKeyExpression(key)
+	} else {
+		idx, err = strconv.Atoi(key)
+	}
 	if err != nil {
 		return errors.Wrapf(err, "value was not a proper array index: '%s'", key)
 	}
@@ -448,8 +494,15 @@ func (d *partialArray) add(key string, val *lazyNode) error {
 }
 
 func (d *partialArray) get(key string) (*lazyNode, error) {
-	idx, err := strconv.Atoi(key)
-
+	var (
+		idx int
+		err error
+	)
+	if strings.HasPrefix(key, "{") {
+		idx, err = d.getIdxByKeyExpression(key)
+	} else {
+		idx, err = strconv.Atoi(key)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +515,15 @@ func (d *partialArray) get(key string) (*lazyNode, error) {
 }
 
 func (d *partialArray) remove(key string) error {
-	idx, err := strconv.Atoi(key)
+	var (
+		idx int
+		err error
+	)
+	if strings.HasPrefix(key, "{") {
+		idx, err = d.getIdxByKeyExpression(key)
+	} else {
+		idx, err = strconv.Atoi(key)
+	}
 	if err != nil {
 		return err
 	}
