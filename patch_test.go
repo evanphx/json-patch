@@ -19,7 +19,7 @@ func reformatJSON(j string) string {
 func compareJSON(a, b string) bool {
 	// return Equal([]byte(a), []byte(b))
 
-	var objA, objB map[string]interface{}
+	var objA, objB interface{}
 	json.Unmarshal([]byte(a), &objA)
 	json.Unmarshal([]byte(b), &objB)
 
@@ -55,6 +55,33 @@ func repeatedA(r int) string {
 	return s
 }
 
+var ExprCases = []Case{
+	{
+		`[ {"foo": [{"key":"bar","key2":"bar2"},{"key":"qux"},{"key":"baz"}]}]`,
+		`[ { "op": "replace", "path": "/0/foo/{'key':'bar'}", "value": {"key2":"bar2"}}]`,
+		`[ {"foo": [{"key2":"bar2"},{"key":"qux"},{"key":"baz"}]}]`,
+	},
+	{
+		`[{"key":"bar","key2":"bar2"},{"key":"qux"},{"key":"baz"}]`,
+		`[ { "op": "replace", "path": "/{'key':'bar'}", "value": {"key2":"bar2"}}]`,
+		`[{"key2":"bar2"},{"key":"qux"},{"key":"baz"}]`,
+	},
+	{
+		`[{"key":"bar","key2":"bar2"},{"key":"qux"},{"key":"baz"}]`,
+		`[ { "op": "add", "path": "/{'key':'qux'}", "value": {"key2":"bar2"}}]`,
+		`[{"key":"bar","key2":"bar2"},{"key2":"bar2"},{"key":"qux"},{"key":"baz"}]`,
+	},
+	{
+		`[{"key":"bar","key2":"bar2"},{"key":"qux"},{"key":"baz"}]`,
+		`[ { "op": "remove", "path": "/{'key':'bar'}"}]`,
+		`[{"key":"qux"},{"key":"baz"}]`,
+	},
+	{
+		`[{"key":"bar","key2":"bar2"},{"key":"qux"},{"key":"baz"}]`,
+		`[ { "op": "test", "path": "/{'key':'bar'}/key2","value":"bar2"},{ "op": "remove", "path": "/{'key':'bar'}"}]`,
+		`[{"key":"qux"},{"key":"baz"}]`,
+	},
+}
 var Cases = []Case{
 	{
 		`{ "foo": "bar"}`,
@@ -169,12 +196,12 @@ var Cases = []Case{
 	{
 		`[ {"foo": ["bar","qux","baz"], "bar": ["qux","baz"]}]`,
 		`[ { "op": "copy", "from": "/0/foo/0", "path": "/0/bar/0"}]`,
-		`[ {"foo": ["bar","qux","baz"], "bar": ["bar", "baz"]}]`,
+		`[ {"foo": ["bar","qux","baz"], "bar": ["bar", "qux", "baz"]}]`,
 	},
 	{
 		`[ {"foo": ["bar","qux","baz"], "bar": ["qux","baz"]}]`,
 		`[ { "op": "copy", "from": "/0/foo/0", "path": "/0/bar"}]`,
-		`[ {"foo": ["bar","qux","baz"], "bar": ["bar", "qux", "baz"]}]`,
+		`[ {"foo": ["bar","qux","baz"], "bar": "bar"}]`,
 	},
 	{
 		`[ { "foo": {"bar": ["qux","baz"]}, "baz": {"qux": "bum"}}]`,
@@ -345,6 +372,19 @@ func configureGlobals(accumulatedCopySizeLimit int64) func() {
 
 func TestAllCases(t *testing.T) {
 	defer configureGlobals(int64(100))()
+	for _, c := range ExprCases {
+		out, err := applyPatch(c.doc, c.patch)
+
+		if err != nil {
+			t.Errorf("Unable to apply patch: %s", err)
+		}
+
+		if !compareJSON(out, c.result) {
+			t.Errorf("Patch did not apply. Expected:\n%s\n\nActual:\n%s\nPatch:%s\n",
+				reformatJSON(c.result), reformatJSON(out), reformatJSON(c.patch))
+		}
+	}
+
 	for _, c := range Cases {
 		out, err := applyPatch(c.doc, c.patch)
 
@@ -353,8 +393,8 @@ func TestAllCases(t *testing.T) {
 		}
 
 		if !compareJSON(out, c.result) {
-			t.Errorf("Patch did not apply. Expected:\n%s\n\nActual:\n%s",
-				reformatJSON(c.result), reformatJSON(out))
+			t.Errorf("Patch did not apply. Expected:\n%s\n\nActual:\n%s\nPatch:%s\n",
+				reformatJSON(c.result), reformatJSON(out), reformatJSON(c.patch))
 		}
 	}
 

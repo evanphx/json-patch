@@ -38,6 +38,9 @@ go get -u github.com/evanphx/json-patch
   which limits the total size increase in bytes caused by "copy" operations in a
   patch. It defaults to 0, which means there is no limit.
 
+* There is an enhanced functionality that enables possiblity to point to json element 
+  in array by knowing its key name and value. `/path/{'key':'value'}/path2`. 
+
 ## Create and apply a merge patch
 Given both an original JSON document and a modified JSON document, you can create
 a [Merge Patch](https://tools.ietf.org/html/rfc7396) document. 
