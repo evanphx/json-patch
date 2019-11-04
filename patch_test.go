@@ -336,6 +336,11 @@ var BadCases = []BadCase{
 		`{ "baz": "qux" }`,
 		`[ { "op": "replace", "path": "/foo", "value": "bar" } ]`,
 	},
+	// Can't copy from non-existent "from" key.
+	{
+		`{ "foo": "bar"}`,
+		`[{"op": "copy", "path": "/qux", "from": "/baz"}]`,
+	},
 }
 
 // This is not thread safe, so we cannot run patch tests in parallel.
