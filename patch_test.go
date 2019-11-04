@@ -187,6 +187,11 @@ var Cases = []Case{
 		`{ "foo": [["bar"], "bar"]}`,
 	},
 	{
+		`{ "foo": null}`,
+		`[{"op": "copy", "path": "/bar", "from": "/foo"}]`,
+		`{ "foo": null, "bar": null}`,
+	},
+	{
 		`{ "foo": ["bar","qux","baz"]}`,
 		`[ { "op": "remove", "path": "/foo/-2"}]`,
 		`{ "foo": ["bar", "baz"]}`,
