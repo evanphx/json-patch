@@ -468,6 +468,18 @@ var TestCases = []TestCase{
 		false,
 		"/foo",
 	},
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "test", "path": "/baz", "value": "bar" } ]`,
+		false,
+		"/baz",
+	},
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "test", "path": "/baz", "value": null } ]`,
+		true,
+		"/baz",
+	},
 }
 
 func TestAllTest(t *testing.T) {
