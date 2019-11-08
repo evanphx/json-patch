@@ -202,6 +202,10 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 			return false
 		}
 
+		if len(n.doc) != len(o.doc) {
+			return false
+		}
+
 		for k, v := range n.doc {
 			ov, ok := o.doc[k]
 
