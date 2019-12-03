@@ -249,7 +249,7 @@ func (o Operation) Kind() string {
 			return "unknown"
 		}
 
-		return op
+		return strings.ToLower(op)
 	}
 
 	return "unknown"
