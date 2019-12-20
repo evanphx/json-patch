@@ -388,13 +388,17 @@ func (d *partialDoc) add(key string, val *lazyNode) error {
 }
 
 func (d *partialDoc) get(key string) (*lazyNode, error) {
-	return (*d)[key], nil
+	v, ok := (*d)[key]
+	if !ok {
+		return v, errors.Wrapf(ErrMissing, "unable to get nonexistent key: %s", key)
+	}
+	return v, nil
 }
 
 func (d *partialDoc) remove(key string) error {
 	_, ok := (*d)[key]
 	if !ok {
-		return errors.Wrapf(ErrMissing, "Unable to remove nonexistent key: %s", key)
+		return errors.Wrapf(ErrMissing, "unable to remove nonexistent key: %s", key)
 	}
 
 	delete(*d, key)
@@ -616,7 +620,7 @@ func (p Patch) test(doc *container, op Operation) error {
 	}
 
 	val, err := con.get(key)
-	if err != nil {
+	if err != nil && errors.Cause(err) != ErrMissing {
 		return errors.Wrapf(err, "error in test for path: '%s'", path)
 	}
 

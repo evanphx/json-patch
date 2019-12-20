@@ -187,6 +187,11 @@ var Cases = []Case{
 		`{ "foo": [["bar"], "bar"]}`,
 	},
 	{
+		`{ "foo": null}`,
+		`[{"op": "copy", "path": "/bar", "from": "/foo"}]`,
+		`{ "foo": null, "bar": null}`,
+	},
+	{
 		`{ "foo": ["bar","qux","baz"]}`,
 		`[ { "op": "remove", "path": "/foo/-2"}]`,
 		`{ "foo": ["bar", "baz"]}`,
@@ -332,6 +337,15 @@ var BadCases = []BadCase{
 		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
 		`[ { "op": "move", "from": "/foo/1", "path": "/foo/4" } ]`,
 	},
+	{
+		`{ "baz": "qux" }`,
+		`[ { "op": "replace", "path": "/foo", "value": "bar" } ]`,
+	},
+	// Can't copy from non-existent "from" key.
+	{
+		`{ "foo": "bar"}`,
+		`[{"op": "copy", "path": "/qux", "from": "/baz"}]`,
+	},
 }
 
 // This is not thread safe, so we cannot run patch tests in parallel.
@@ -458,6 +472,18 @@ var TestCases = []TestCase{
 		`[ { "op": "test", "path": "/foo"} ]`,
 		false,
 		"/foo",
+	},
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "test", "path": "/baz", "value": "bar" } ]`,
+		false,
+		"/baz",
+	},
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "test", "path": "/baz", "value": null } ]`,
+		true,
+		"/baz",
 	},
 }
 
