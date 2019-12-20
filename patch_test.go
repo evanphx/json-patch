@@ -514,12 +514,12 @@ func TestAdd(t *testing.T) {
 			err:  "Unable to access invalid index: -2: invalid index referenced",
 		},
 		{
-			name:                   "negative but negative disabled",
-			key:                    "-1",
-			val:                    lazyNode{},
-			arr:                    partialArray{},
+			name: "negative but negative disabled",
+			key:  "-1",
+			val:  lazyNode{},
+			arr:  partialArray{},
 			rejectNegativeIndicies: true,
-			err:                    "Unable to access invalid index: -1: invalid index referenced",
+			err: "Unable to access invalid index: -1: invalid index referenced",
 		},
 	}
 	for _, tc := range testCases {
@@ -537,5 +537,32 @@ func TestAdd(t *testing.T) {
 				t.Errorf("Expected error %v but got error %v", tc.err, err)
 			}
 		})
+	}
+}
+
+type EqualityCase struct {
+	a, b  string
+	equal bool
+}
+
+var EqualityCases = []EqualityCase{
+	EqualityCase{
+		`{"foo": "bar"}`,
+		`{"foo": "bar", "baz": "qux"}`,
+		false,
+	},
+}
+
+func TestEquality(t *testing.T) {
+	for _, tc := range EqualityCases {
+		got := Equal([]byte(tc.a), []byte(tc.b))
+		if got != tc.equal {
+			t.Errorf("Expected Equal(%s, %s) to return %t, but got %t", tc.a, tc.b, tc.equal, got)
+		}
+
+		got = Equal([]byte(tc.b), []byte(tc.a))
+		if got != tc.equal {
+			t.Errorf("Expected Equal(%s, %s) to return %t, but got %t", tc.b, tc.a, tc.equal, got)
+		}
 	}
 }
