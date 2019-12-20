@@ -164,7 +164,7 @@ func main() {
 	}
 
 	if !jsonpatch.Equal(original, different) {
-		fmt.Println(`"original" is _not_ structurally equal to "similar"`)
+		fmt.Println(`"original" is _not_ structurally equal to "different"`)
 	}
 }
 ```
@@ -173,7 +173,7 @@ When ran, you get the following output:
 ```bash
 $ go run main.go
 "original" is structurally equal to "similar"
-"original" is _not_ structurally equal to "similar"
+"original" is _not_ structurally equal to "different"
 ```
 
 ## Combine merge patches
