@@ -633,6 +633,30 @@ var EqualityCases = []EqualityCase{
 		`{"foo": null, "bar": null}`,
 		false,
 	},
+	{
+		"NullCompareStringFalse",
+		`"foo"`,
+		`null`,
+		false,
+	},
+	{
+		"NullCompareIntFalse",
+		`6`,
+		`null`,
+		false,
+	},
+	{
+		"NullCompareFloatFalse",
+		`6.01`,
+		`null`,
+		false,
+	},
+	{
+		"NullCompareBoolFalse",
+		`false`,
+		`null`,
+		false,
+	},
 }
 
 func TestEquality(t *testing.T) {
