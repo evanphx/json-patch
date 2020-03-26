@@ -82,7 +82,7 @@ When ran, you get the following output:
 ```bash
 $ go run main.go
 patch document:   {"height":null,"name":"Jane"}
-updated tina doc: {"age":28,"name":"Jane"}
+updated alternative doc: {"age":28,"name":"Jane"}
 ```
 
 ## Create and apply a JSON Patch

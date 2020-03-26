@@ -567,28 +567,110 @@ func TestAdd(t *testing.T) {
 }
 
 type EqualityCase struct {
+	name  string
 	a, b  string
 	equal bool
 }
 
 var EqualityCases = []EqualityCase{
-	EqualityCase{
+	{
+		"ExtraKeyFalse",
 		`{"foo": "bar"}`,
 		`{"foo": "bar", "baz": "qux"}`,
+		false,
+	},
+	{
+		"StripWhitespaceTrue",
+		`{
+			"foo": "bar",
+			"baz": "qux"
+		}`,
+		`{"foo": "bar", "baz": "qux"}`,
+		true,
+	},
+	{
+		"KeysOutOfOrderTrue",
+		`{
+			"baz": "qux",
+			"foo": "bar"
+		}`,
+		`{"foo": "bar", "baz": "qux"}`,
+		true,
+	},
+	{
+		"ComparingNullFalse",
+		`{"foo": null}`,
+		`{"foo": "bar"}`,
+		false,
+	},
+	{
+		"ComparingNullTrue",
+		`{"foo": null}`,
+		`{"foo": null}`,
+		true,
+	},
+	{
+		"ArrayOutOfOrderFalse",
+		`["foo", "bar", "baz"]`,
+		`["bar", "baz", "foo"]`,
+		false,
+	},
+	{
+		"ArrayTrue",
+		`["foo", "bar", "baz"]`,
+		`["foo", "bar", "baz"]`,
+		true,
+	},
+	{
+		"NonStringTypesTrue",
+		`{"int": 6, "bool": true, "float": 7.0, "string": "the_string", "null": null}`,
+		`{"int": 6, "bool": true, "float": 7.0, "string": "the_string", "null": null}`,
+		true,
+	},
+	{
+		"NestedNullFalse",
+		`{"foo": ["an", "array"], "bar": {"an": "object"}}`,
+		`{"foo": null, "bar": null}`,
+		false,
+	},
+	{
+		"NullCompareStringFalse",
+		`"foo"`,
+		`null`,
+		false,
+	},
+	{
+		"NullCompareIntFalse",
+		`6`,
+		`null`,
+		false,
+	},
+	{
+		"NullCompareFloatFalse",
+		`6.01`,
+		`null`,
+		false,
+	},
+	{
+		"NullCompareBoolFalse",
+		`false`,
+		`null`,
 		false,
 	},
 }
 
 func TestEquality(t *testing.T) {
 	for _, tc := range EqualityCases {
-		got := Equal([]byte(tc.a), []byte(tc.b))
-		if got != tc.equal {
-			t.Errorf("Expected Equal(%s, %s) to return %t, but got %t", tc.a, tc.b, tc.equal, got)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			got := Equal([]byte(tc.a), []byte(tc.b))
+			if got != tc.equal {
+				t.Errorf("Expected Equal(%s, %s) to return %t, but got %t", tc.a, tc.b, tc.equal, got)
+			}
 
-		got = Equal([]byte(tc.b), []byte(tc.a))
-		if got != tc.equal {
-			t.Errorf("Expected Equal(%s, %s) to return %t, but got %t", tc.b, tc.a, tc.equal, got)
-		}
+			got = Equal([]byte(tc.b), []byte(tc.a))
+			if got != tc.equal {
+				t.Errorf("Expected Equal(%s, %s) to return %t, but got %t", tc.b, tc.a, tc.equal, got)
+			}
+		})
 	}
 }
