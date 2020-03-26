@@ -11,6 +11,9 @@ install:
 script:
   - go get
   - go test -cover ./...
+  - cd ./v5
+  - go get
+  - go test -cover ./...
 
 notifications:
   email: false
