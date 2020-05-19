@@ -34,6 +34,15 @@ go get -u github.com/evanphx/json-patch
   functionality can be disabled by setting `jsonpatch.SupportNegativeIndices =
   false`.
 
+* There is a global configuration variable `jsonpatch.SupportDeleteByValue`.
+  This defaults to `true` and enables the support for the non-standard
+  practice of deleting from an array with value. This functionality
+  can be disabled by setting `jsonpatch.SupportNegativeIndices = false`.
+  This can be used by using `-` instead of the array index and specifying the
+  value to remove in "value". For example:
+  `[{ "op": "remove", "path": "/foo/-", "value": "qux"}]` will delete
+  value `qux` from the array `foo`. This works also with values that are objects.
+
 * There is a global configuration variable `jsonpatch.AccumulatedCopySizeLimit`,
   which limits the total size increase in bytes caused by "copy" operations in a
   patch. It defaults to 0, which means there is no limit.
