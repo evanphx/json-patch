@@ -27,21 +27,21 @@ func merge(cur, patch *lazyNode, mergeMerge bool) *lazyNode {
 }
 
 func mergeDocs(doc, patch *partialDoc, mergeMerge bool) {
-	for k, v := range *patch {
+	for k, v := range patch.Map {
 		if v == nil {
 			if mergeMerge {
-				(*doc)[k] = nil
+				(doc.Map)[k] = nil
 			} else {
-				delete(*doc, k)
+				delete(doc.Map, k)
 			}
 		} else {
-			cur, ok := (*doc)[k]
+			cur, ok := (doc.Map)[k]
 
 			if !ok || cur == nil {
 				pruneNulls(v)
-				(*doc)[k] = v
+				(doc.Map)[k] = v
 			} else {
-				(*doc)[k] = merge(cur, v, mergeMerge)
+				(doc.Map)[k] = merge(cur, v, mergeMerge)
 			}
 		}
 	}
@@ -62,9 +62,9 @@ func pruneNulls(n *lazyNode) {
 }
 
 func pruneDocNulls(doc *partialDoc) *partialDoc {
-	for k, v := range *doc {
+	for k, v := range doc.Map {
 		if v == nil {
-			delete(*doc, k)
+			delete(doc.Map, k)
 		} else {
 			pruneNulls(v)
 		}
@@ -121,11 +121,11 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 		return nil, errBadJSONPatch
 	}
 
-	if docErr == nil && *doc == nil {
+	if docErr == nil && doc.Map == nil {
 		return nil, errBadJSONDoc
 	}
 
-	if patchErr == nil && *patch == nil {
+	if patchErr == nil && patch.Map == nil {
 		return nil, errBadJSONPatch
 	}
 

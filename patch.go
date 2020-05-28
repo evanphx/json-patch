@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -47,7 +48,11 @@ type Operation map[string]*json.RawMessage
 // Patch is an ordered collection of Operations.
 type Patch []Operation
 
-type partialDoc map[string]*lazyNode
+type partialDoc struct {
+	Order []string
+	Map   map[string]*lazyNode
+}
+
 type partialArray []*lazyNode
 
 type container interface {
@@ -57,8 +62,57 @@ type container interface {
 	remove(key string) error
 }
 
+func (d *partialDoc) UnmarshalJSON(b []byte) error {
+	err := json.Unmarshal(b, &d.Map)
+	if err != nil {
+		return err
+	}
+
+	index := make(map[string]int)
+	for key := range d.Map {
+		d.Order = append(d.Order, key)
+		esc, _ := json.Marshal(key) //Escape the key
+		index[key] = bytes.Index(b, esc)
+	}
+
+	sort.Slice(d.Order, func(i, j int) bool { return index[d.Order[i]] < index[d.Order[j]] })
+	return nil
+}
+
+func (d partialDoc) MarshalJSON() ([]byte, error) {
+	var b []byte
+	buf := bytes.NewBuffer(b)
+	buf.WriteRune('{')
+	l := len(d.Order)
+	for i, key := range d.Order {
+		km, err := json.Marshal(key)
+		if err != nil {
+			return nil, err
+		}
+		val, ok := d.Map[key]
+		if !ok {
+			continue
+		}
+		buf.Write(km)
+		buf.WriteRune(':')
+		vm, err := json.Marshal(val)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(vm)
+		if i != l-1 {
+			buf.WriteRune(',')
+		}
+	}
+	buf.WriteRune('}')
+	return buf.Bytes(), nil
+}
+
 func newLazyNode(raw *json.RawMessage) *lazyNode {
-	return &lazyNode{raw: raw, doc: nil, ary: nil, which: eRaw}
+	return &lazyNode{raw: raw, doc: struct {
+		Order []string
+		Map   map[string]*lazyNode
+	}{Order: nil, Map: nil}, ary: nil, which: eRaw}
 }
 
 func (n *lazyNode) MarshalJSON() ([]byte, error) {
@@ -202,12 +256,12 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 			return false
 		}
 
-		if len(n.doc) != len(o.doc) {
+		if len(n.doc.Map) != len(o.doc.Map) {
 			return false
 		}
 
-		for k, v := range n.doc {
-			ov, ok := o.doc[k]
+		for k, v := range n.doc.Map {
+			ov, ok := o.doc.Map[k]
 
 			if !ok {
 				return false
@@ -382,17 +436,23 @@ func findObject(pd *container, path string) (container, string) {
 }
 
 func (d *partialDoc) set(key string, val *lazyNode) error {
-	(*d)[key] = val
+	(d.Map)[key] = val
 	return nil
 }
 
 func (d *partialDoc) add(key string, val *lazyNode) error {
-	(*d)[key] = val
+	(d.Map)[key] = val
+	for _, k := range d.Order {
+		if k == key {
+			return nil
+		}
+	}
+	d.Order = append(d.Order, key)
 	return nil
 }
 
 func (d *partialDoc) get(key string) (*lazyNode, error) {
-	v, ok := (*d)[key]
+	v, ok := (d.Map)[key]
 	if !ok {
 		return v, errors.Wrapf(ErrMissing, "unable to get nonexistent key: %s", key)
 	}
@@ -400,12 +460,20 @@ func (d *partialDoc) get(key string) (*lazyNode, error) {
 }
 
 func (d *partialDoc) remove(key string) error {
-	_, ok := (*d)[key]
+	_, ok := (d.Map)[key]
 	if !ok {
 		return errors.Wrapf(ErrMissing, "unable to remove nonexistent key: %s", key)
 	}
 
-	delete(*d, key)
+	delete(d.Map, key)
+
+	// Find and remove key
+	for i, k := range d.Order {
+		if k == key {
+			d.Order = append(d.Order[:i], d.Order[i+1:]...)
+			break
+		}
+	}
 	return nil
 }
 
