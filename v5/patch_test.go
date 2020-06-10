@@ -241,6 +241,14 @@ var MutationTestCases = []BadCase{
 		`[ { "op": "remove", "path": "/qux/bar" } ]`,
 	},
 	{
+		`{ "foo": "bar", "qux": [ { "baz": 1}, {"baz": 2}, {"baz": 3} ] }`,
+		`[ { "op": "remove", "path": "/qux/1" },{ "op": "remove", "path": "/qux/2" } ]`,
+	},
+	{
+		`{ "foo": "bar", "qux": [ { "baz": 1}, {"baz": 2}, {"baz": 3} ] }`,
+		`[ { "op": "remove", "path": "/qux/0" },{ "op": "remove", "path": "/qux/2" } ]`,
+	},
+	{
 		`{ "foo": "bar", "qux": { "baz": 1, "bar": null } }`,
 		`[ { "op": "replace", "path": "/qux/baz", "value": null } ]`,
 	},
@@ -540,12 +548,12 @@ func TestAdd(t *testing.T) {
 			err:  "Unable to access invalid index: -2: invalid index referenced",
 		},
 		{
-			name: "negative but negative disabled",
-			key:  "-1",
-			val:  lazyNode{},
-			arr:  partialArray{},
+			name:                   "negative but negative disabled",
+			key:                    "-1",
+			val:                    lazyNode{},
+			arr:                    partialArray{},
 			rejectNegativeIndicies: true,
-			err: "Unable to access invalid index: -1: invalid index referenced",
+			err:                    "Unable to access invalid index: -1: invalid index referenced",
 		},
 	}
 	for _, tc := range testCases {

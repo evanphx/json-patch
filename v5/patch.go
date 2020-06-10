@@ -24,6 +24,10 @@ var (
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
 	// "copy" operations in a patch.
 	AccumulatedCopySizeLimit int64 = 0
+	// RemoveTypePatchOrderASC is used for reversing patches of 'remove' actions in
+	// an array, e.g. "[ { "op": "remove", "path": "/qux/0" },{ "op": "remove", "path": "/qux/1" } ]".
+	// if they are ordered by asc, we should reverse them in case of causing invalid index.
+	RemoveTypePatchInArrayOrderASC = true
 )
 
 var (
@@ -741,7 +745,9 @@ func (p Patch) ApplyIndent(doc []byte, indent string) ([]byte, error) {
 	err = nil
 
 	var accumulatedCopySize int64
-
+	if RemoveTypePatchInArrayOrderASC {
+		p = reversePatch(p)
+	}
 	for _, op := range p {
 		switch op.Kind() {
 		case "add":
@@ -785,4 +791,17 @@ var (
 
 func decodePatchKey(k string) string {
 	return rfc6901Decoder.Replace(k)
+}
+
+// reversePatch assume patch are ordered asc for an array, especially for 'remove'
+func reversePatch(patch Patch) Patch {
+	len := len(patch)
+	if len == 0 {
+		return nil
+	}
+	newPatch := make([]Operation, len)
+	for idx, p := range patch {
+		newPatch[len-1-idx] = p
+	}
+	return newPatch
 }
