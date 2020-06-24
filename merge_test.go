@@ -462,6 +462,73 @@ func createNestedMap(m map[string]interface{}, depth int, objectCount *int) {
 	}
 }
 
+func TestMatchesValue(t *testing.T) {
+	testcases := []struct {
+		name string
+		a    interface{}
+		b    interface{}
+		want bool
+	}{
+		{
+			name: "map empty",
+			a:    map[string]interface{}{},
+			b:    map[string]interface{}{},
+			want: true,
+		},
+		{
+			name: "map equal keys, equal non-nil value",
+			a:    map[string]interface{}{"1": true},
+			b:    map[string]interface{}{"1": true},
+			want: true,
+		},
+		{
+			name: "map equal keys, equal nil value",
+			a:    map[string]interface{}{"1": nil},
+			b:    map[string]interface{}{"1": nil},
+			want: true,
+		},
+
+		{
+			name: "map different value",
+			a:    map[string]interface{}{"1": true},
+			b:    map[string]interface{}{"1": false},
+			want: false,
+		},
+		{
+			name: "map different key, matching non-nil value",
+			a:    map[string]interface{}{"1": true},
+			b:    map[string]interface{}{"2": true},
+			want: false,
+		},
+		{
+			name: "map different key, matching nil value",
+			a:    map[string]interface{}{"1": nil},
+			b:    map[string]interface{}{"2": nil},
+			want: false,
+		},
+		{
+			name: "map different key, first nil value",
+			a:    map[string]interface{}{"1": true},
+			b:    map[string]interface{}{"2": nil},
+			want: false,
+		},
+		{
+			name: "map different key, second nil value",
+			a:    map[string]interface{}{"1": nil},
+			b:    map[string]interface{}{"2": true},
+			want: false,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := matchesValue(tc.a, tc.b)
+			if got != tc.want {
+				t.Fatalf("want %v, got %v", tc.want, got)
+			}
+		})
+	}
+}
+
 func benchmarkMatchesValueWithDeeplyNestedFields(depth int, b *testing.B) {
 	a := map[string]interface{}{}
 	objCount := 1
