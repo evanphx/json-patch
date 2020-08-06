@@ -343,6 +343,10 @@ Loop:
 func findObject(pd *container, path string) (container, string) {
 	doc := *pd
 
+	if path == "" {
+		return *pd, ""
+	}
+
 	split := strings.Split(path, "/")
 
 	if len(split) < 2 {
@@ -381,17 +385,48 @@ func findObject(pd *container, path string) (container, string) {
 	return doc, decodePatchKey(key)
 }
 
+func asNode(pd container) (*lazyNode, error) {
+	js, err := json.Marshal(pd)
+	if err != nil {
+		return nil, errors.Wrap(err, "trying to get doc JSON")
+	}
+
+	msg := json.RawMessage(js)
+	return newLazyNode(&msg), nil
+}
+
+func (d *partialDoc) setSelf(val *lazyNode) error {
+	if val.tryDoc() {
+		*d = val.doc
+		return nil
+	}
+
+	return errors.New("object can only replace itself with an object")
+}
+
 func (d *partialDoc) set(key string, val *lazyNode) error {
+	if key == "" {
+		return d.setSelf(val)
+	}
+
 	(*d)[key] = val
 	return nil
 }
 
 func (d *partialDoc) add(key string, val *lazyNode) error {
+	if key == "" {
+		return errors.New("can't add val to whole doc")
+	}
+
 	(*d)[key] = val
 	return nil
 }
 
 func (d *partialDoc) get(key string) (*lazyNode, error) {
+	if key == "" {
+		return asNode(d)
+	}
+
 	v, ok := (*d)[key]
 	if !ok {
 		return v, errors.Wrapf(ErrMissing, "unable to get nonexistent key: %s", key)
@@ -400,6 +435,11 @@ func (d *partialDoc) get(key string) (*lazyNode, error) {
 }
 
 func (d *partialDoc) remove(key string) error {
+	if key == "" {
+		*d = nil
+		return nil
+	}
+
 	_, ok := (*d)[key]
 	if !ok {
 		return errors.Wrapf(ErrMissing, "unable to remove nonexistent key: %s", key)
@@ -409,9 +449,22 @@ func (d *partialDoc) remove(key string) error {
 	return nil
 }
 
+func (d *partialArray) setSelf(val *lazyNode) error {
+	if val.tryAry() {
+		*d = val.ary
+		return nil
+	}
+
+	return errors.New("array can only replace itself with an array")
+}
+
 // set should only be used to implement the "replace" operation, so "key" must
 // be an already existing index in "d".
 func (d *partialArray) set(key string, val *lazyNode) error {
+	if key == "" {
+		return d.setSelf(val)
+	}
+
 	idx, err := strconv.Atoi(key)
 	if err != nil {
 		return err
@@ -421,7 +474,11 @@ func (d *partialArray) set(key string, val *lazyNode) error {
 }
 
 func (d *partialArray) add(key string, val *lazyNode) error {
-	if key == "-" {
+	switch key {
+	case "":
+		return errors.New("array can't add to entire doc")
+
+	case "-":
 		*d = append(*d, val)
 		return nil
 	}
@@ -460,6 +517,10 @@ func (d *partialArray) add(key string, val *lazyNode) error {
 }
 
 func (d *partialArray) get(key string) (*lazyNode, error) {
+	if key == "" {
+		return asNode(d)
+	}
+
 	idx, err := strconv.Atoi(key)
 
 	if err != nil {
@@ -474,6 +535,11 @@ func (d *partialArray) get(key string) (*lazyNode, error) {
 }
 
 func (d *partialArray) remove(key string) error {
+	if key == "" {
+		*d = nil
+		return nil
+	}
+
 	idx, err := strconv.Atoi(key)
 	if err != nil {
 		return err

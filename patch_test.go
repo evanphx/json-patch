@@ -222,6 +222,11 @@ var Cases = []Case{
 		`{ "bar": [null]}`,
 	},
 	{
+		`{ "bar": "baz" }`,
+		`[ { "op": "replace", "path": "", "value": { "foo": "bar" } } ]`,
+		`{ "foo": "bar" }`,
+	},
+	{
 		fmt.Sprintf(`{ "foo": ["A", %q] }`, repeatedA(48)),
 		// The wrapping quotes around 'A's are included in the copy
 		// size, so each copy operation increases the size by 50 bytes.
