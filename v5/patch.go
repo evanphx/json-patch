@@ -24,6 +24,9 @@ var (
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
 	// "copy" operations in a patch.
 	AccumulatedCopySizeLimit int64 = 0
+	// AllowMissingPathOnRemove indicates whether to fail "remove" operations when the target path is missing.
+	// Default to false.
+	AllowMissingPathOnRemove = false
 )
 
 var (
@@ -402,6 +405,9 @@ func (d *partialDoc) get(key string) (*lazyNode, error) {
 func (d *partialDoc) remove(key string) error {
 	_, ok := (*d)[key]
 	if !ok {
+		if AllowMissingPathOnRemove {
+			return nil
+		}
 		return errors.Wrapf(ErrMissing, "unable to remove nonexistent key: %s", key)
 	}
 
@@ -482,6 +488,9 @@ func (d *partialArray) remove(key string) error {
 	cur := *d
 
 	if idx >= len(cur) {
+		if AllowMissingPathOnRemove {
+			return nil
+		}
 		return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 	}
 
@@ -490,6 +499,9 @@ func (d *partialArray) remove(key string) error {
 			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 		}
 		if idx < -len(cur) {
+			if AllowMissingPathOnRemove {
+				return nil
+			}
 			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 		}
 		idx += len(cur)
@@ -502,7 +514,6 @@ func (d *partialArray) remove(key string) error {
 
 	*d = ary
 	return nil
-
 }
 
 func (p Patch) add(doc *container, op Operation) error {
@@ -534,6 +545,9 @@ func (p Patch) remove(doc *container, op Operation) error {
 	con, key := findObject(doc, path)
 
 	if con == nil {
+		if AllowMissingPathOnRemove {
+			return nil
+		}
 		return errors.Wrapf(ErrMissing, "remove operation does not apply: doc is missing path: \"%s\"", path)
 	}
 

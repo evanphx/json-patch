@@ -19,7 +19,7 @@ func reformatJSON(j string) string {
 func compareJSON(a, b string) bool {
 	// return Equal([]byte(a), []byte(b))
 
-	var objA, objB map[string]interface{}
+	var objA, objB interface{}
 	json.Unmarshal([]byte(a), &objA)
 	json.Unmarshal([]byte(b), &objB)
 
@@ -44,7 +44,8 @@ func applyPatch(doc, patch string) (string, error) {
 }
 
 type Case struct {
-	doc, patch, result string
+	doc, patch, result       string
+	allowMissingPathOnRemove bool
 }
 
 func repeatedA(r int) string {
@@ -64,7 +65,8 @@ var Cases = []Case{
 		`{
        "baz": "qux",
        "foo": "bar"
-     }`,
+		 }`,
+		false,
 	},
 	{
 		`{ "foo": [ "bar", "baz" ] }`,
@@ -72,6 +74,7 @@ var Cases = []Case{
      { "op": "add", "path": "/foo/1", "value": "qux" }
     ]`,
 		`{ "foo": [ "bar", "qux", "baz" ] }`,
+		false,
 	},
 	{
 		`{ "foo": [ "bar", "baz" ] }`,
@@ -79,21 +82,25 @@ var Cases = []Case{
      { "op": "add", "path": "/foo/-1", "value": "qux" }
     ]`,
 		`{ "foo": [ "bar", "baz", "qux" ] }`,
+		false,
 	},
 	{
 		`{ "baz": "qux", "foo": "bar" }`,
 		`[ { "op": "remove", "path": "/baz" } ]`,
 		`{ "foo": "bar" }`,
+		false,
 	},
 	{
 		`{ "foo": [ "bar", "qux", "baz" ] }`,
 		`[ { "op": "remove", "path": "/foo/1" } ]`,
 		`{ "foo": [ "bar", "baz" ] }`,
+		false,
 	},
 	{
 		`{ "baz": "qux", "foo": "bar" }`,
 		`[ { "op": "replace", "path": "/baz", "value": "boo" } ]`,
 		`{ "baz": "boo", "foo": "bar" }`,
+		false,
 	},
 	{
 		`{
@@ -115,111 +122,133 @@ var Cases = []Case{
        "thud": "fred"
      }
    }`,
+		false,
 	},
 	{
 		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
 		`[ { "op": "move", "from": "/foo/1", "path": "/foo/3" } ]`,
 		`{ "foo": [ "all", "cows", "eat", "grass" ] }`,
+		false,
 	},
 	{
 		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
 		`[ { "op": "move", "from": "/foo/1", "path": "/foo/2" } ]`,
 		`{ "foo": [ "all", "cows", "grass", "eat" ] }`,
+		false,
 	},
 	{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "path": "/child", "value": { "grandchild": { } } } ]`,
 		`{ "foo": "bar", "child": { "grandchild": { } } }`,
+		false,
 	},
 	{
 		`{ "foo": ["bar"] }`,
 		`[ { "op": "add", "path": "/foo/-", "value": ["abc", "def"] } ]`,
 		`{ "foo": ["bar", ["abc", "def"]] }`,
+		false,
 	},
 	{
 		`{ "foo": "bar", "qux": { "baz": 1, "bar": null } }`,
 		`[ { "op": "remove", "path": "/qux/bar" } ]`,
 		`{ "foo": "bar", "qux": { "baz": 1 } }`,
+		false,
 	},
 	{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "path": "/baz", "value": null } ]`,
 		`{ "baz": null, "foo": "bar" }`,
+		false,
 	},
 	{
 		`{ "foo": ["bar"]}`,
 		`[ { "op": "replace", "path": "/foo/0", "value": "baz"}]`,
 		`{ "foo": ["baz"]}`,
+		false,
 	},
 	{
 		`{ "foo": ["bar","baz"]}`,
 		`[ { "op": "replace", "path": "/foo/0", "value": "bum"}]`,
 		`{ "foo": ["bum","baz"]}`,
+		false,
 	},
 	{
 		`{ "foo": ["bar","qux","baz"]}`,
 		`[ { "op": "replace", "path": "/foo/1", "value": "bum"}]`,
 		`{ "foo": ["bar", "bum","baz"]}`,
+		false,
 	},
 	{
 		`[ {"foo": ["bar","qux","baz"]}]`,
 		`[ { "op": "replace", "path": "/0/foo/0", "value": "bum"}]`,
 		`[ {"foo": ["bum","qux","baz"]}]`,
+		false,
 	},
 	{
 		`[ {"foo": ["bar","qux","baz"], "bar": ["qux","baz"]}]`,
 		`[ { "op": "copy", "from": "/0/foo/0", "path": "/0/bar/0"}]`,
-		`[ {"foo": ["bar","qux","baz"], "bar": ["bar", "baz"]}]`,
+		`[ {"foo": ["bar","qux","baz"], "bar": ["bar", "qux", "baz"]}]`,
+		false,
 	},
 	{
 		`[ {"foo": ["bar","qux","baz"], "bar": ["qux","baz"]}]`,
 		`[ { "op": "copy", "from": "/0/foo/0", "path": "/0/bar"}]`,
-		`[ {"foo": ["bar","qux","baz"], "bar": ["bar", "qux", "baz"]}]`,
+		`[ {"foo": ["bar","qux","baz"], "bar": "bar"}]`,
+		false,
 	},
 	{
 		`[ { "foo": {"bar": ["qux","baz"]}, "baz": {"qux": "bum"}}]`,
 		`[ { "op": "copy", "from": "/0/foo/bar", "path": "/0/baz/bar"}]`,
 		`[ { "baz": {"bar": ["qux","baz"], "qux":"bum"}, "foo": {"bar": ["qux","baz"]}}]`,
+		false,
 	},
 	{
 		`{ "foo": ["bar"]}`,
 		`[{"op": "copy", "path": "/foo/0", "from": "/foo"}]`,
 		`{ "foo": [["bar"], "bar"]}`,
+		false,
 	},
 	{
 		`{ "foo": null}`,
 		`[{"op": "copy", "path": "/bar", "from": "/foo"}]`,
 		`{ "foo": null, "bar": null}`,
+		false,
 	},
 	{
 		`{ "foo": ["bar","qux","baz"]}`,
 		`[ { "op": "remove", "path": "/foo/-2"}]`,
 		`{ "foo": ["bar", "baz"]}`,
+		false,
 	},
 	{
 		`{ "foo": []}`,
 		`[ { "op": "add", "path": "/foo/-1", "value": "qux"}]`,
 		`{ "foo": ["qux"]}`,
+		false,
 	},
 	{
 		`{ "bar": [{"baz": null}]}`,
 		`[ { "op": "replace", "path": "/bar/0/baz", "value": 1 } ]`,
 		`{ "bar": [{"baz": 1}]}`,
+		false,
 	},
 	{
 		`{ "bar": [{"baz": 1}]}`,
 		`[ { "op": "replace", "path": "/bar/0/baz", "value": null } ]`,
 		`{ "bar": [{"baz": null}]}`,
+		false,
 	},
 	{
 		`{ "bar": [null]}`,
 		`[ { "op": "replace", "path": "/bar/0", "value": 1 } ]`,
 		`{ "bar": [1]}`,
+		false,
 	},
 	{
 		`{ "bar": [1]}`,
 		`[ { "op": "replace", "path": "/bar/0", "value": null } ]`,
 		`{ "bar": [null]}`,
+		false,
 	},
 	{
 		fmt.Sprintf(`{ "foo": ["A", %q] }`, repeatedA(48)),
@@ -228,21 +257,61 @@ var Cases = []Case{
 		`[ { "op": "copy", "path": "/foo/-", "from": "/foo/1" },
 		   { "op": "copy", "path": "/foo/-", "from": "/foo/1" }]`,
 		fmt.Sprintf(`{ "foo": ["A", %q, %q, %q] }`, repeatedA(48), repeatedA(48), repeatedA(48)),
+		false,
+	},
+	{
+		`[1, 2, 3]`,
+		`[ { "op": "remove", "path": "/0" } ]`,
+		`[2, 3]`,
+		false,
+	},
+	{
+		`{ "a": { "b": { "d": 1 } } }`,
+		`[ { "op": "remove", "path": "/a/b/c" } ]`,
+		`{ "a": { "b": { "d": 1 } } }`,
+		true,
+	},
+	{
+		`{ "a": { "b": { "d": 1 } } }`,
+		`[ { "op": "remove", "path": "/x/y/z" } ]`,
+		`{ "a": { "b": { "d": 1 } } }`,
+		true,
+	},
+	{
+		`[1, 2, 3]`,
+		`[ { "op": "remove", "path": "/10" } ]`,
+		`[1, 2, 3]`,
+		true,
+	},
+	{
+		`[1, 2, 3]`,
+		`[ { "op": "remove", "path": "/10/x/y/z" } ]`,
+		`[1, 2, 3]`,
+		true,
+	},
+	{
+		`[1, 2, 3]`,
+		`[ { "op": "remove", "path": "/-10" } ]`,
+		`[1, 2, 3]`,
+		true,
 	},
 }
 
 type BadCase struct {
-	doc, patch string
+	doc, patch               string
+	allowMissingPathOnRemove bool
 }
 
 var MutationTestCases = []BadCase{
 	{
 		`{ "foo": "bar", "qux": { "baz": 1, "bar": null } }`,
 		`[ { "op": "remove", "path": "/qux/bar" } ]`,
+		false,
 	},
 	{
 		`{ "foo": "bar", "qux": { "baz": 1, "bar": null } }`,
 		`[ { "op": "replace", "path": "/qux/baz", "value": null } ]`,
+		false,
 	},
 }
 
@@ -250,79 +319,98 @@ var BadCases = []BadCase{
 	{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "path": "/baz/bat", "value": "qux" } ]`,
+		false,
 	},
 	{
 		`{ "a": { "b": { "d": 1 } } }`,
 		`[ { "op": "remove", "path": "/a/b/c" } ]`,
+		false,
 	},
 	{
 		`{ "a": { "b": { "d": 1 } } }`,
 		`[ { "op": "move", "from": "/a/b/c", "path": "/a/b/e" } ]`,
+		false,
 	},
 	{
 		`{ "a": { "b": [1] } }`,
 		`[ { "op": "remove", "path": "/a/b/1" } ]`,
+		false,
 	},
 	{
 		`{ "a": { "b": [1] } }`,
 		`[ { "op": "move", "from": "/a/b/1", "path": "/a/b/2" } ]`,
+		false,
 	},
 	{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "pathz": "/baz", "value": "qux" } ]`,
+		false,
 	},
 	{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "path": "", "value": "qux" } ]`,
+		false,
 	},
 	{
 		`{ "foo": ["bar","baz"]}`,
 		`[ { "op": "replace", "path": "/foo/2", "value": "bum"}]`,
+		false,
 	},
 	{
 		`{ "foo": ["bar","baz"]}`,
 		`[ { "op": "add", "path": "/foo/-4", "value": "bum"}]`,
+		false,
 	},
 	{
 		`{ "name":{ "foo": "bat", "qux": "bum"}}`,
 		`[ { "op": "replace", "path": "/foo/bar", "value":"baz"}]`,
+		false,
 	},
 	{
 		`{ "foo": ["bar"]}`,
 		`[ {"op": "add", "path": "/foo/2", "value": "bum"}]`,
+		false,
 	},
 	{
 		`{ "foo": []}`,
 		`[ {"op": "remove", "path": "/foo/-"}]`,
+		false,
 	},
 	{
 		`{ "foo": []}`,
 		`[ {"op": "remove", "path": "/foo/-1"}]`,
+		false,
 	},
 	{
 		`{ "foo": ["bar"]}`,
 		`[ {"op": "remove", "path": "/foo/-2"}]`,
+		false,
 	},
 	{
 		`{}`,
 		`[ {"op":null,"path":""} ]`,
+		false,
 	},
 	{
 		`{}`,
 		`[ {"op":"add","path":null} ]`,
+		false,
 	},
 	{
 		`{}`,
 		`[ { "op": "copy", "from": null }]`,
+		false,
 	},
 	{
 		`{ "foo": ["bar"]}`,
 		`[{"op": "copy", "path": "/foo/6666666666", "from": "/"}]`,
+		false,
 	},
 	// Can't copy into an index greater than the size of the array
 	{
 		`{ "foo": ["bar"]}`,
 		`[{"op": "copy", "path": "/foo/2", "from": "/foo/0"}]`,
+		false,
 	},
 	// Accumulated copy size cannot exceed AccumulatedCopySizeLimit.
 	{
@@ -331,20 +419,24 @@ var BadCases = []BadCase{
 		// size, so each copy operation increases the size by 51 bytes.
 		`[ { "op": "copy", "path": "/foo/-", "from": "/foo/1" },
 		   { "op": "copy", "path": "/foo/-", "from": "/foo/1" }]`,
+		false,
 	},
 	// Can't move into an index greater than or equal to the size of the array
 	{
 		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
 		`[ { "op": "move", "from": "/foo/1", "path": "/foo/4" } ]`,
+		false,
 	},
 	{
 		`{ "baz": "qux" }`,
 		`[ { "op": "replace", "path": "/foo", "value": "bar" } ]`,
+		false,
 	},
 	// Can't copy from non-existent "from" key.
 	{
 		`{ "foo": "bar"}`,
 		`[{"op": "copy", "path": "/qux", "from": "/baz"}]`,
+		false,
 	},
 }
 
@@ -359,7 +451,11 @@ func configureGlobals(accumulatedCopySizeLimit int64) func() {
 
 func TestAllCases(t *testing.T) {
 	defer configureGlobals(int64(100))()
+
+	defaultAllowMissingPathOnRemove := AllowMissingPathOnRemove
+
 	for _, c := range Cases {
+		AllowMissingPathOnRemove = c.allowMissingPathOnRemove
 		out, err := applyPatch(c.doc, c.patch)
 
 		if err != nil {
@@ -367,10 +463,12 @@ func TestAllCases(t *testing.T) {
 		}
 
 		if !compareJSON(out, c.result) {
-			t.Errorf("Patch did not apply. Expected:\n%s\n\nActual:\n%s",
-				reformatJSON(c.result), reformatJSON(out))
+			t.Errorf("Patch %v did not apply. Expected:\n%s\n\nActual:\n%s",
+				c.patch, reformatJSON(c.result), reformatJSON(out))
 		}
 	}
+
+	AllowMissingPathOnRemove = defaultAllowMissingPathOnRemove
 
 	for _, c := range MutationTestCases {
 		out, err := applyPatch(c.doc, c.patch)
@@ -386,12 +484,15 @@ func TestAllCases(t *testing.T) {
 	}
 
 	for _, c := range BadCases {
+		AllowMissingPathOnRemove = c.allowMissingPathOnRemove
 		_, err := applyPatch(c.doc, c.patch)
 
 		if err == nil {
 			t.Errorf("Patch %q should have failed to apply but it did not", c.patch)
 		}
 	}
+
+	AllowMissingPathOnRemove = defaultAllowMissingPathOnRemove
 }
 
 type TestCase struct {
@@ -540,12 +641,12 @@ func TestAdd(t *testing.T) {
 			err:  "Unable to access invalid index: -2: invalid index referenced",
 		},
 		{
-			name: "negative but negative disabled",
-			key:  "-1",
-			val:  lazyNode{},
-			arr:  partialArray{},
+			name:                   "negative but negative disabled",
+			key:                    "-1",
+			val:                    lazyNode{},
+			arr:                    partialArray{},
 			rejectNegativeIndicies: true,
-			err: "Unable to access invalid index: -1: invalid index referenced",
+			err:                    "Unable to access invalid index: -1: invalid index referenced",
 		},
 	}
 	for _, tc := range testCases {
