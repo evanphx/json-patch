@@ -19,7 +19,7 @@ func reformatJSON(j string) string {
 func compareJSON(a, b string) bool {
 	// return Equal([]byte(a), []byte(b))
 
-	var objA, objB map[string]interface{}
+	var objA, objB interface{}
 	json.Unmarshal([]byte(a), &objA)
 	json.Unmarshal([]byte(b), &objB)
 
@@ -43,8 +43,25 @@ func applyPatch(doc, patch string) (string, error) {
 	return string(out), nil
 }
 
+func applyPatchWithOptions(doc, patch string, options *ApplyOptions) (string, error) {
+	obj, err := DecodePatch([]byte(patch))
+
+	if err != nil {
+		panic(err)
+	}
+
+	out, err := obj.ApplyWithOptions([]byte(doc), options)
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(out), nil
+}
+
 type Case struct {
-	doc, patch, result string
+	doc, patch, result       string
+	allowMissingPathOnRemove bool
 }
 
 func repeatedA(r int) string {
@@ -64,7 +81,8 @@ var Cases = []Case{
 		`{
        "baz": "qux",
        "foo": "bar"
-     }`,
+		 }`,
+		false,
 	},
 	{
 		`{ "foo": [ "bar", "baz" ] }`,
@@ -72,6 +90,7 @@ var Cases = []Case{
      { "op": "add", "path": "/foo/1", "value": "qux" }
     ]`,
 		`{ "foo": [ "bar", "qux", "baz" ] }`,
+		false,
 	},
 	{
 		`{ "foo": [ "bar", "baz" ] }`,
@@ -79,21 +98,25 @@ var Cases = []Case{
      { "op": "add", "path": "/foo/-1", "value": "qux" }
     ]`,
 		`{ "foo": [ "bar", "baz", "qux" ] }`,
+		false,
 	},
 	{
 		`{ "baz": "qux", "foo": "bar" }`,
 		`[ { "op": "remove", "path": "/baz" } ]`,
 		`{ "foo": "bar" }`,
+		false,
 	},
 	{
 		`{ "foo": [ "bar", "qux", "baz" ] }`,
 		`[ { "op": "remove", "path": "/foo/1" } ]`,
 		`{ "foo": [ "bar", "baz" ] }`,
+		false,
 	},
 	{
 		`{ "baz": "qux", "foo": "bar" }`,
 		`[ { "op": "replace", "path": "/baz", "value": "boo" } ]`,
 		`{ "baz": "boo", "foo": "bar" }`,
+		false,
 	},
 	{
 		`{
@@ -115,111 +138,133 @@ var Cases = []Case{
        "thud": "fred"
      }
    }`,
+		false,
 	},
 	{
 		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
 		`[ { "op": "move", "from": "/foo/1", "path": "/foo/3" } ]`,
 		`{ "foo": [ "all", "cows", "eat", "grass" ] }`,
+		false,
 	},
 	{
 		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
 		`[ { "op": "move", "from": "/foo/1", "path": "/foo/2" } ]`,
 		`{ "foo": [ "all", "cows", "grass", "eat" ] }`,
+		false,
 	},
 	{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "path": "/child", "value": { "grandchild": { } } } ]`,
 		`{ "foo": "bar", "child": { "grandchild": { } } }`,
+		false,
 	},
 	{
 		`{ "foo": ["bar"] }`,
 		`[ { "op": "add", "path": "/foo/-", "value": ["abc", "def"] } ]`,
 		`{ "foo": ["bar", ["abc", "def"]] }`,
+		false,
 	},
 	{
 		`{ "foo": "bar", "qux": { "baz": 1, "bar": null } }`,
 		`[ { "op": "remove", "path": "/qux/bar" } ]`,
 		`{ "foo": "bar", "qux": { "baz": 1 } }`,
+		false,
 	},
 	{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "path": "/baz", "value": null } ]`,
 		`{ "baz": null, "foo": "bar" }`,
+		false,
 	},
 	{
 		`{ "foo": ["bar"]}`,
 		`[ { "op": "replace", "path": "/foo/0", "value": "baz"}]`,
 		`{ "foo": ["baz"]}`,
+		false,
 	},
 	{
 		`{ "foo": ["bar","baz"]}`,
 		`[ { "op": "replace", "path": "/foo/0", "value": "bum"}]`,
 		`{ "foo": ["bum","baz"]}`,
+		false,
 	},
 	{
 		`{ "foo": ["bar","qux","baz"]}`,
 		`[ { "op": "replace", "path": "/foo/1", "value": "bum"}]`,
 		`{ "foo": ["bar", "bum","baz"]}`,
+		false,
 	},
 	{
 		`[ {"foo": ["bar","qux","baz"]}]`,
 		`[ { "op": "replace", "path": "/0/foo/0", "value": "bum"}]`,
 		`[ {"foo": ["bum","qux","baz"]}]`,
+		false,
 	},
 	{
 		`[ {"foo": ["bar","qux","baz"], "bar": ["qux","baz"]}]`,
 		`[ { "op": "copy", "from": "/0/foo/0", "path": "/0/bar/0"}]`,
-		`[ {"foo": ["bar","qux","baz"], "bar": ["bar", "baz"]}]`,
+		`[ {"foo": ["bar","qux","baz"], "bar": ["bar", "qux", "baz"]}]`,
+		false,
 	},
 	{
 		`[ {"foo": ["bar","qux","baz"], "bar": ["qux","baz"]}]`,
 		`[ { "op": "copy", "from": "/0/foo/0", "path": "/0/bar"}]`,
-		`[ {"foo": ["bar","qux","baz"], "bar": ["bar", "qux", "baz"]}]`,
+		`[ {"foo": ["bar","qux","baz"], "bar": "bar"}]`,
+		false,
 	},
 	{
 		`[ { "foo": {"bar": ["qux","baz"]}, "baz": {"qux": "bum"}}]`,
 		`[ { "op": "copy", "from": "/0/foo/bar", "path": "/0/baz/bar"}]`,
 		`[ { "baz": {"bar": ["qux","baz"], "qux":"bum"}, "foo": {"bar": ["qux","baz"]}}]`,
+		false,
 	},
 	{
 		`{ "foo": ["bar"]}`,
 		`[{"op": "copy", "path": "/foo/0", "from": "/foo"}]`,
 		`{ "foo": [["bar"], "bar"]}`,
+		false,
 	},
 	{
 		`{ "foo": null}`,
 		`[{"op": "copy", "path": "/bar", "from": "/foo"}]`,
 		`{ "foo": null, "bar": null}`,
+		false,
 	},
 	{
 		`{ "foo": ["bar","qux","baz"]}`,
 		`[ { "op": "remove", "path": "/foo/-2"}]`,
 		`{ "foo": ["bar", "baz"]}`,
+		false,
 	},
 	{
 		`{ "foo": []}`,
 		`[ { "op": "add", "path": "/foo/-1", "value": "qux"}]`,
 		`{ "foo": ["qux"]}`,
+		false,
 	},
 	{
 		`{ "bar": [{"baz": null}]}`,
 		`[ { "op": "replace", "path": "/bar/0/baz", "value": 1 } ]`,
 		`{ "bar": [{"baz": 1}]}`,
+		false,
 	},
 	{
 		`{ "bar": [{"baz": 1}]}`,
 		`[ { "op": "replace", "path": "/bar/0/baz", "value": null } ]`,
 		`{ "bar": [{"baz": null}]}`,
+		false,
 	},
 	{
 		`{ "bar": [null]}`,
 		`[ { "op": "replace", "path": "/bar/0", "value": 1 } ]`,
 		`{ "bar": [1]}`,
+		false,
 	},
 	{
 		`{ "bar": [1]}`,
 		`[ { "op": "replace", "path": "/bar/0", "value": null } ]`,
 		`{ "bar": [null]}`,
+		false,
 	},
 	{
 		fmt.Sprintf(`{ "foo": ["A", %q] }`, repeatedA(48)),
@@ -228,6 +273,43 @@ var Cases = []Case{
 		`[ { "op": "copy", "path": "/foo/-", "from": "/foo/1" },
 		   { "op": "copy", "path": "/foo/-", "from": "/foo/1" }]`,
 		fmt.Sprintf(`{ "foo": ["A", %q, %q, %q] }`, repeatedA(48), repeatedA(48), repeatedA(48)),
+		false,
+	},
+	{
+		`[1, 2, 3]`,
+		`[ { "op": "remove", "path": "/0" } ]`,
+		`[2, 3]`,
+		false,
+	},
+	{
+		`{ "a": { "b": { "d": 1 } } }`,
+		`[ { "op": "remove", "path": "/a/b/c" } ]`,
+		`{ "a": { "b": { "d": 1 } } }`,
+		true,
+	},
+	{
+		`{ "a": { "b": { "d": 1 } } }`,
+		`[ { "op": "remove", "path": "/x/y/z" } ]`,
+		`{ "a": { "b": { "d": 1 } } }`,
+		true,
+	},
+	{
+		`[1, 2, 3]`,
+		`[ { "op": "remove", "path": "/10" } ]`,
+		`[1, 2, 3]`,
+		true,
+	},
+	{
+		`[1, 2, 3]`,
+		`[ { "op": "remove", "path": "/10/x/y/z" } ]`,
+		`[1, 2, 3]`,
+		true,
+	},
+	{
+		`[1, 2, 3]`,
+		`[ { "op": "remove", "path": "/-10" } ]`,
+		`[1, 2, 3]`,
+		true,
 	},
 }
 
@@ -359,8 +441,30 @@ func configureGlobals(accumulatedCopySizeLimit int64) func() {
 
 func TestAllCases(t *testing.T) {
 	defer configureGlobals(int64(100))()
+
+	// Test patch.Apply happy-path cases.
 	for _, c := range Cases {
-		out, err := applyPatch(c.doc, c.patch)
+		if !c.allowMissingPathOnRemove {
+			out, err := applyPatch(c.doc, c.patch)
+
+			if err != nil {
+				t.Errorf("Unable to apply patch: %s", err)
+			}
+
+			if !compareJSON(out, c.result) {
+				t.Errorf("Patch did not apply. Expected:\n%s\n\nActual:\n%s",
+					reformatJSON(c.result), reformatJSON(out))
+			}
+		}
+	}
+
+	// Test patch.ApplyWithOptions happy-path cases.
+	options := NewApplyOptions()
+
+	for _, c := range Cases {
+		options.AllowMissingPathOnRemove = c.allowMissingPathOnRemove
+
+		out, err := applyPatchWithOptions(c.doc, c.patch, options)
 
 		if err != nil {
 			t.Errorf("Unable to apply patch: %s", err)
@@ -494,7 +598,7 @@ func TestAllTest(t *testing.T) {
 		if c.result && err != nil {
 			t.Errorf("Testing failed when it should have passed: %s", err)
 		} else if !c.result && err == nil {
-			t.Errorf("Testing passed when it should have faild: %s", err)
+			t.Errorf("Testing passed when it should have failed: %s", err)
 		} else if !c.result {
 			expected := fmt.Sprintf("testing value %s failed: test failed", c.failedPath)
 			if err.Error() != expected {
@@ -540,21 +644,20 @@ func TestAdd(t *testing.T) {
 			err:  "Unable to access invalid index: -2: invalid index referenced",
 		},
 		{
-			name: "negative but negative disabled",
-			key:  "-1",
-			val:  lazyNode{},
-			arr:  partialArray{},
+			name:                   "negative but negative disabled",
+			key:                    "-1",
+			val:                    lazyNode{},
+			arr:                    partialArray{},
 			rejectNegativeIndicies: true,
-			err: "Unable to access invalid index: -1: invalid index referenced",
+			err:                    "Unable to access invalid index: -1: invalid index referenced",
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			SupportNegativeIndices = !tc.rejectNegativeIndicies
 			key := tc.key
 			arr := &tc.arr
 			val := &tc.val
-			err := arr.add(key, val)
+			err := arr.add(key, val, !tc.rejectNegativeIndicies)
 			if err == nil && tc.err != "" {
 				t.Errorf("Expected error but got none! %v", tc.err)
 			} else if err != nil && tc.err == "" {
