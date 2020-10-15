@@ -53,8 +53,8 @@ type partialArray []*lazyNode
 type container interface {
 	get(key string) (*lazyNode, error)
 	set(key string, val *lazyNode) error
-	add(key string, val *lazyNode, supportNegativeIndices bool) error
-	remove(key string, allowMissingPathOnRemove bool, supportNegativeIndices bool) error
+	add(key string, val *lazyNode, options *ApplyOptions) error
+	remove(key string, options *ApplyOptions) error
 }
 
 // ApplyOptions specifies options for calls to ApplyWithOptions.
@@ -410,7 +410,7 @@ func (d *partialDoc) set(key string, val *lazyNode) error {
 	return nil
 }
 
-func (d *partialDoc) add(key string, val *lazyNode, supportNegativeIndices bool) error {
+func (d *partialDoc) add(key string, val *lazyNode, options *ApplyOptions) error {
 	(*d)[key] = val
 	return nil
 }
@@ -423,10 +423,10 @@ func (d *partialDoc) get(key string) (*lazyNode, error) {
 	return v, nil
 }
 
-func (d *partialDoc) remove(key string, allowMissingPathOnRemove bool, supportNegativeIndices bool) error {
+func (d *partialDoc) remove(key string, options *ApplyOptions) error {
 	_, ok := (*d)[key]
 	if !ok {
-		if allowMissingPathOnRemove {
+		if options.AllowMissingPathOnRemove {
 			return nil
 		}
 		return errors.Wrapf(ErrMissing, "unable to remove nonexistent key: %s", key)
@@ -447,7 +447,7 @@ func (d *partialArray) set(key string, val *lazyNode) error {
 	return nil
 }
 
-func (d *partialArray) add(key string, val *lazyNode, supportNegativeIndices bool) error {
+func (d *partialArray) add(key string, val *lazyNode, options *ApplyOptions) error {
 	if key == "-" {
 		*d = append(*d, val)
 		return nil
@@ -469,7 +469,7 @@ func (d *partialArray) add(key string, val *lazyNode, supportNegativeIndices boo
 	}
 
 	if idx < 0 {
-		if !supportNegativeIndices {
+		if !options.SupportNegativeIndices {
 			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 		}
 		if idx < -len(ary) {
@@ -500,7 +500,7 @@ func (d *partialArray) get(key string) (*lazyNode, error) {
 	return (*d)[idx], nil
 }
 
-func (d *partialArray) remove(key string, allowMissingPathOnRemove bool, supportNegativeIndices bool) error {
+func (d *partialArray) remove(key string, options *ApplyOptions) error {
 	idx, err := strconv.Atoi(key)
 	if err != nil {
 		return err
@@ -509,18 +509,18 @@ func (d *partialArray) remove(key string, allowMissingPathOnRemove bool, support
 	cur := *d
 
 	if idx >= len(cur) {
-		if allowMissingPathOnRemove {
+		if options.AllowMissingPathOnRemove {
 			return nil
 		}
 		return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 	}
 
 	if idx < 0 {
-		if !supportNegativeIndices {
+		if !options.SupportNegativeIndices {
 			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 		}
 		if idx < -len(cur) {
-			if allowMissingPathOnRemove {
+			if options.AllowMissingPathOnRemove {
 				return nil
 			}
 			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
@@ -537,7 +537,7 @@ func (d *partialArray) remove(key string, allowMissingPathOnRemove bool, support
 	return nil
 }
 
-func (p Patch) add(doc *container, op Operation, supportNegativeIndices bool) error {
+func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
 		return errors.Wrapf(ErrMissing, "add operation failed to decode path")
@@ -549,7 +549,7 @@ func (p Patch) add(doc *container, op Operation, supportNegativeIndices bool) er
 		return errors.Wrapf(ErrMissing, "add operation does not apply: doc is missing path: \"%s\"", path)
 	}
 
-	err = con.add(key, op.value(), supportNegativeIndices)
+	err = con.add(key, op.value(), options)
 	if err != nil {
 		return errors.Wrapf(err, "error in add for path: '%s'", path)
 	}
@@ -557,7 +557,7 @@ func (p Patch) add(doc *container, op Operation, supportNegativeIndices bool) er
 	return nil
 }
 
-func (p Patch) remove(doc *container, op Operation, allowMissingPathOnRemove bool, supportNegativeIndices bool) error {
+func (p Patch) remove(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
 		return errors.Wrapf(ErrMissing, "remove operation failed to decode path")
@@ -566,13 +566,13 @@ func (p Patch) remove(doc *container, op Operation, allowMissingPathOnRemove boo
 	con, key := findObject(doc, path)
 
 	if con == nil {
-		if allowMissingPathOnRemove {
+		if options.AllowMissingPathOnRemove {
 			return nil
 		}
 		return errors.Wrapf(ErrMissing, "remove operation does not apply: doc is missing path: \"%s\"", path)
 	}
 
-	err = con.remove(key, allowMissingPathOnRemove, supportNegativeIndices)
+	err = con.remove(key, options)
 	if err != nil {
 		return errors.Wrapf(err, "error in remove for path: '%s'", path)
 	}
@@ -580,7 +580,7 @@ func (p Patch) remove(doc *container, op Operation, allowMissingPathOnRemove boo
 	return nil
 }
 
-func (p Patch) replace(doc *container, op Operation) error {
+func (p Patch) replace(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
 		return errors.Wrapf(err, "replace operation failed to decode path")
@@ -605,7 +605,7 @@ func (p Patch) replace(doc *container, op Operation) error {
 	return nil
 }
 
-func (p Patch) move(doc *container, op Operation, allowMissingPathOnRemove bool, supportNegativeIndices bool) error {
+func (p Patch) move(doc *container, op Operation, options *ApplyOptions) error {
 	from, err := op.From()
 	if err != nil {
 		return errors.Wrapf(err, "move operation failed to decode from")
@@ -622,7 +622,7 @@ func (p Patch) move(doc *container, op Operation, allowMissingPathOnRemove bool,
 		return errors.Wrapf(err, "error in move for path: '%s'", key)
 	}
 
-	err = con.remove(key, allowMissingPathOnRemove, supportNegativeIndices)
+	err = con.remove(key, options)
 	if err != nil {
 		return errors.Wrapf(err, "error in move for path: '%s'", key)
 	}
@@ -638,7 +638,7 @@ func (p Patch) move(doc *container, op Operation, allowMissingPathOnRemove bool,
 		return errors.Wrapf(ErrMissing, "move operation does not apply: doc is missing destination path: %s", path)
 	}
 
-	err = con.add(key, val, supportNegativeIndices)
+	err = con.add(key, val, options)
 	if err != nil {
 		return errors.Wrapf(err, "error in move for path: '%s'", path)
 	}
@@ -646,7 +646,7 @@ func (p Patch) move(doc *container, op Operation, allowMissingPathOnRemove bool,
 	return nil
 }
 
-func (p Patch) test(doc *container, op Operation) error {
+func (p Patch) test(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
 		return errors.Wrapf(err, "test operation failed to decode path")
@@ -679,7 +679,7 @@ func (p Patch) test(doc *container, op Operation) error {
 	return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
 }
 
-func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64, supportNegativeIndices bool, accumulatedCopySizeLimit int64) error {
+func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64, options *ApplyOptions) error {
 	from, err := op.From()
 	if err != nil {
 		return errors.Wrapf(err, "copy operation failed to decode from")
@@ -713,11 +713,11 @@ func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64, su
 	}
 
 	(*accumulatedCopySize) += int64(sz)
-	if accumulatedCopySizeLimit > 0 && *accumulatedCopySize > accumulatedCopySizeLimit {
-		return NewAccumulatedCopySizeError(accumulatedCopySizeLimit, *accumulatedCopySize)
+	if options.AccumulatedCopySizeLimit > 0 && *accumulatedCopySize > options.AccumulatedCopySizeLimit {
+		return NewAccumulatedCopySizeError(options.AccumulatedCopySizeLimit, *accumulatedCopySize)
 	}
 
-	err = con.add(key, valCopy, supportNegativeIndices)
+	err = con.add(key, valCopy, options)
 	if err != nil {
 		return errors.Wrapf(err, "error while adding value during copy")
 	}
@@ -792,17 +792,17 @@ func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyO
 	for _, op := range p {
 		switch op.Kind() {
 		case "add":
-			err = p.add(&pd, op, options.SupportNegativeIndices)
+			err = p.add(&pd, op, options)
 		case "remove":
-			err = p.remove(&pd, op, options.AllowMissingPathOnRemove, options.SupportNegativeIndices)
+			err = p.remove(&pd, op, options)
 		case "replace":
-			err = p.replace(&pd, op)
+			err = p.replace(&pd, op, options)
 		case "move":
-			err = p.move(&pd, op, options.AllowMissingPathOnRemove, options.SupportNegativeIndices)
+			err = p.move(&pd, op, options)
 		case "test":
-			err = p.test(&pd, op)
+			err = p.test(&pd, op, options)
 		case "copy":
-			err = p.copy(&pd, op, &accumulatedCopySize, options.SupportNegativeIndices, options.AccumulatedCopySizeLimit)
+			err = p.copy(&pd, op, &accumulatedCopySize, options)
 		default:
 			err = fmt.Errorf("Unexpected kind: %s", op.Kind())
 		}

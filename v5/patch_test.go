@@ -652,12 +652,16 @@ func TestAdd(t *testing.T) {
 			err:                    "Unable to access invalid index: -1: invalid index referenced",
 		},
 	}
+
+	options := NewApplyOptions()
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			key := tc.key
 			arr := &tc.arr
 			val := &tc.val
-			err := arr.add(key, val, !tc.rejectNegativeIndicies)
+			options.SupportNegativeIndices = !tc.rejectNegativeIndicies
+			err := arr.add(key, val, options)
 			if err == nil && tc.err != "" {
 				t.Errorf("Expected error but got none! %v", tc.err)
 			} else if err != nil && tc.err == "" {
