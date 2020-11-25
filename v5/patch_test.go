@@ -62,6 +62,7 @@ func applyPatchWithOptions(doc, patch string, options *ApplyOptions) (string, er
 type Case struct {
 	doc, patch, result       string
 	allowMissingPathOnRemove bool
+	ensurePathExistsOnAdd    bool
 }
 
 func repeatedA(r int) string {
@@ -76,28 +77,31 @@ var Cases = []Case{
 	{
 		`{ "foo": "bar"}`,
 		`[
-         { "op": "add", "path": "/baz", "value": "qux" }
-     ]`,
+	       { "op": "add", "path": "/baz", "value": "qux" }
+	   ]`,
 		`{
-       "baz": "qux",
-       "foo": "bar"
+	     "baz": "qux",
+	     "foo": "bar"
 		 }`,
 		false,
-	},
-	{
-		`{ "foo": [ "bar", "baz" ] }`,
-		`[
-     { "op": "add", "path": "/foo/1", "value": "qux" }
-    ]`,
-		`{ "foo": [ "bar", "qux", "baz" ] }`,
 		false,
 	},
 	{
 		`{ "foo": [ "bar", "baz" ] }`,
 		`[
-     { "op": "add", "path": "/foo/-1", "value": "qux" }
-    ]`,
+	   { "op": "add", "path": "/foo/1", "value": "qux" }
+	  ]`,
+		`{ "foo": [ "bar", "qux", "baz" ] }`,
+		false,
+		false,
+	},
+	{
+		`{ "foo": [ "bar", "baz" ] }`,
+		`[
+	   { "op": "add", "path": "/foo/-1", "value": "qux" }
+	  ]`,
 		`{ "foo": [ "bar", "baz", "qux" ] }`,
+		false,
 		false,
 	},
 	{
@@ -105,11 +109,13 @@ var Cases = []Case{
 		`[ { "op": "remove", "path": "/baz" } ]`,
 		`{ "foo": "bar" }`,
 		false,
+		false,
 	},
 	{
 		`{ "foo": [ "bar", "qux", "baz" ] }`,
 		`[ { "op": "remove", "path": "/foo/1" } ]`,
 		`{ "foo": [ "bar", "baz" ] }`,
+		false,
 		false,
 	},
 	{
@@ -117,27 +123,29 @@ var Cases = []Case{
 		`[ { "op": "replace", "path": "/baz", "value": "boo" } ]`,
 		`{ "baz": "boo", "foo": "bar" }`,
 		false,
+		false,
 	},
 	{
 		`{
-     "foo": {
-       "bar": "baz",
-       "waldo": "fred"
-     },
-     "qux": {
-       "corge": "grault"
-     }
-   }`,
+	   "foo": {
+	     "bar": "baz",
+	     "waldo": "fred"
+	   },
+	   "qux": {
+	     "corge": "grault"
+	   }
+	 }`,
 		`[ { "op": "move", "from": "/foo/waldo", "path": "/qux/thud" } ]`,
 		`{
-     "foo": {
-       "bar": "baz"
-     },
-     "qux": {
-       "corge": "grault",
-       "thud": "fred"
-     }
-   }`,
+	   "foo": {
+	     "bar": "baz"
+	   },
+	   "qux": {
+	     "corge": "grault",
+	     "thud": "fred"
+	   }
+	 }`,
+		false,
 		false,
 	},
 	{
@@ -145,11 +153,13 @@ var Cases = []Case{
 		`[ { "op": "move", "from": "/foo/1", "path": "/foo/3" } ]`,
 		`{ "foo": [ "all", "cows", "eat", "grass" ] }`,
 		false,
+		false,
 	},
 	{
 		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
 		`[ { "op": "move", "from": "/foo/1", "path": "/foo/2" } ]`,
 		`{ "foo": [ "all", "cows", "grass", "eat" ] }`,
+		false,
 		false,
 	},
 	{
@@ -157,11 +167,13 @@ var Cases = []Case{
 		`[ { "op": "add", "path": "/child", "value": { "grandchild": { } } } ]`,
 		`{ "foo": "bar", "child": { "grandchild": { } } }`,
 		false,
+		false,
 	},
 	{
 		`{ "foo": ["bar"] }`,
 		`[ { "op": "add", "path": "/foo/-", "value": ["abc", "def"] } ]`,
 		`{ "foo": ["bar", ["abc", "def"]] }`,
+		false,
 		false,
 	},
 	{
@@ -169,11 +181,13 @@ var Cases = []Case{
 		`[ { "op": "remove", "path": "/qux/bar" } ]`,
 		`{ "foo": "bar", "qux": { "baz": 1 } }`,
 		false,
+		false,
 	},
 	{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "path": "/baz", "value": null } ]`,
 		`{ "baz": null, "foo": "bar" }`,
+		false,
 		false,
 	},
 	{
@@ -181,11 +195,20 @@ var Cases = []Case{
 		`[ { "op": "replace", "path": "/foo/0", "value": "baz"}]`,
 		`{ "foo": ["baz"]}`,
 		false,
+		false,
+	},
+	{
+		`{ "foo": ["bar"]}`,
+		`[ { "op": "replace", "path": "/foo/-1", "value": "baz"}]`,
+		`{ "foo": ["baz"]}`,
+		false,
+		false,
 	},
 	{
 		`{ "foo": ["bar","baz"]}`,
 		`[ { "op": "replace", "path": "/foo/0", "value": "bum"}]`,
 		`{ "foo": ["bum","baz"]}`,
+		false,
 		false,
 	},
 	{
@@ -193,11 +216,13 @@ var Cases = []Case{
 		`[ { "op": "replace", "path": "/foo/1", "value": "bum"}]`,
 		`{ "foo": ["bar", "bum","baz"]}`,
 		false,
+		false,
 	},
 	{
 		`[ {"foo": ["bar","qux","baz"]}]`,
 		`[ { "op": "replace", "path": "/0/foo/0", "value": "bum"}]`,
 		`[ {"foo": ["bum","qux","baz"]}]`,
+		false,
 		false,
 	},
 	{
@@ -205,11 +230,13 @@ var Cases = []Case{
 		`[ { "op": "copy", "from": "/0/foo/0", "path": "/0/bar/0"}]`,
 		`[ {"foo": ["bar","qux","baz"], "bar": ["bar", "qux", "baz"]}]`,
 		false,
+		false,
 	},
 	{
 		`[ {"foo": ["bar","qux","baz"], "bar": ["qux","baz"]}]`,
 		`[ { "op": "copy", "from": "/0/foo/0", "path": "/0/bar"}]`,
 		`[ {"foo": ["bar","qux","baz"], "bar": "bar"}]`,
+		false,
 		false,
 	},
 	{
@@ -217,11 +244,13 @@ var Cases = []Case{
 		`[ { "op": "copy", "from": "/0/foo/bar", "path": "/0/baz/bar"}]`,
 		`[ { "baz": {"bar": ["qux","baz"], "qux":"bum"}, "foo": {"bar": ["qux","baz"]}}]`,
 		false,
+		false,
 	},
 	{
 		`{ "foo": ["bar"]}`,
 		`[{"op": "copy", "path": "/foo/0", "from": "/foo"}]`,
 		`{ "foo": [["bar"], "bar"]}`,
+		false,
 		false,
 	},
 	{
@@ -229,11 +258,13 @@ var Cases = []Case{
 		`[{"op": "copy", "path": "/bar", "from": "/foo"}]`,
 		`{ "foo": null, "bar": null}`,
 		false,
+		false,
 	},
 	{
 		`{ "foo": ["bar","qux","baz"]}`,
 		`[ { "op": "remove", "path": "/foo/-2"}]`,
 		`{ "foo": ["bar", "baz"]}`,
+		false,
 		false,
 	},
 	{
@@ -241,11 +272,13 @@ var Cases = []Case{
 		`[ { "op": "add", "path": "/foo/-1", "value": "qux"}]`,
 		`{ "foo": ["qux"]}`,
 		false,
+		false,
 	},
 	{
 		`{ "bar": [{"baz": null}]}`,
 		`[ { "op": "replace", "path": "/bar/0/baz", "value": 1 } ]`,
 		`{ "bar": [{"baz": 1}]}`,
+		false,
 		false,
 	},
 	{
@@ -253,17 +286,20 @@ var Cases = []Case{
 		`[ { "op": "replace", "path": "/bar/0/baz", "value": null } ]`,
 		`{ "bar": [{"baz": null}]}`,
 		false,
+		false,
 	},
 	{
 		`{ "bar": [null]}`,
 		`[ { "op": "replace", "path": "/bar/0", "value": 1 } ]`,
 		`{ "bar": [1]}`,
 		false,
+		false,
 	},
 	{
 		`{ "bar": [1]}`,
 		`[ { "op": "replace", "path": "/bar/0", "value": null } ]`,
 		`{ "bar": [null]}`,
+		false,
 		false,
 	},
 	{
@@ -274,11 +310,13 @@ var Cases = []Case{
 		   { "op": "copy", "path": "/foo/-", "from": "/foo/1" }]`,
 		fmt.Sprintf(`{ "foo": ["A", %q, %q, %q] }`, repeatedA(48), repeatedA(48), repeatedA(48)),
 		false,
+		false,
 	},
 	{
 		`[1, 2, 3]`,
 		`[ { "op": "remove", "path": "/0" } ]`,
 		`[2, 3]`,
+		false,
 		false,
 	},
 	{
@@ -286,29 +324,125 @@ var Cases = []Case{
 		`[ { "op": "remove", "path": "/a/b/c" } ]`,
 		`{ "a": { "b": { "d": 1 } } }`,
 		true,
+		false,
 	},
 	{
 		`{ "a": { "b": { "d": 1 } } }`,
 		`[ { "op": "remove", "path": "/x/y/z" } ]`,
 		`{ "a": { "b": { "d": 1 } } }`,
 		true,
+		false,
 	},
 	{
 		`[1, 2, 3]`,
 		`[ { "op": "remove", "path": "/10" } ]`,
 		`[1, 2, 3]`,
 		true,
+		false,
 	},
 	{
 		`[1, 2, 3]`,
 		`[ { "op": "remove", "path": "/10/x/y/z" } ]`,
 		`[1, 2, 3]`,
 		true,
+		false,
 	},
 	{
 		`[1, 2, 3]`,
 		`[ { "op": "remove", "path": "/-10" } ]`,
 		`[1, 2, 3]`,
+		true,
+		false,
+	},
+	{
+		`{}`,
+		`[ { "op": "add", "path": "/a", "value": "hello" } ]`,
+		`{"a": "hello" }`,
+		false,
+		true,
+	},
+	{
+		`{}`,
+		`[ { "op": "add", "path": "/a/b", "value": "hello" } ]`,
+		`{"a": {"b": "hello" } }`,
+		false,
+		true,
+	},
+	{
+		`{}`,
+		`[ { "op": "add", "path": "/a/b/c", "value": "hello" } ]`,
+		`{"a": {"b": {"c": "hello" } } }`,
+		false,
+		true,
+	},
+	{
+		`{"a": {} }`,
+		`[ { "op": "add", "path": "/a/b/c", "value": "hello" } ]`,
+		`{"a": {"b": {"c": "hello" } } }`,
+		false,
+		true,
+	},
+	{
+		`{"a": {} }`,
+		`[ { "op": "add", "path": "/x/y/z", "value": "hello" } ]`,
+		`{"a": {}, "x" : {"y": {"z": "hello" } } }`,
+		false,
+		true,
+	},
+	{
+		`{}`,
+		`[ { "op": "add", "path": "/a/0/b", "value": "hello" } ]`,
+		`{"a": [{"b": "hello"}] }`,
+		false,
+		true,
+	},
+	{
+		`{}`,
+		`[ { "op": "add", "path": "/a/b/0", "value": "hello" } ]`,
+		`{"a": {"b": ["hello"] } }`,
+		false,
+		true,
+	},
+	{
+		`{}`,
+		`[ { "op": "add", "path": "/a/b/3", "value": "hello" } ]`,
+		`{"a": {"b": [null, null, null, "hello"] } }`,
+		false,
+		true,
+	},
+	{
+		`{"a": []}`,
+		`[ { "op": "add", "path": "/a/-1", "value": "hello" } ]`,
+		`{"a": ["hello"]}`,
+		false,
+		true,
+	},
+	{
+		`{}`,
+		`[ { "op": "add", "path": "/a/0/0", "value": "hello" } ]`,
+		`{"a": [["hello"]]}`,
+		false,
+		true,
+	},
+	{
+		`{"a": [{}]}`,
+		`[ { "op": "add", "path": "/a/-1/b/c", "value": "hello" } ]`,
+		`{"a": [{"b": {"c": "hello"}}]}`,
+		false,
+		true,
+	},
+	{
+		`{"a": [{"b": "whatever"}]}`,
+		`[ { "op": "add", "path": "/a/2/b/c", "value": "hello" } ]`,
+		`{"a": [{"b": "whatever"}, null, {"b": {"c": "hello"}}]}`,
+		false,
+		true,
+	},
+	{
+		`{"a": [{"b": "whatever"}]}`,
+		`[ { "op": "add", "path": "/a/1/b/c", "value": "hello" } ]`,
+		`{"a": [{"b": "whatever"}, {"b": {"c": "hello"}}]}`,
+		false,
 		true,
 	},
 }
@@ -444,7 +578,7 @@ func TestAllCases(t *testing.T) {
 
 	// Test patch.Apply happy-path cases.
 	for _, c := range Cases {
-		if !c.allowMissingPathOnRemove {
+		if !c.allowMissingPathOnRemove && !c.ensurePathExistsOnAdd {
 			out, err := applyPatch(c.doc, c.patch)
 
 			if err != nil {
@@ -463,6 +597,7 @@ func TestAllCases(t *testing.T) {
 
 	for _, c := range Cases {
 		options.AllowMissingPathOnRemove = c.allowMissingPathOnRemove
+		options.EnsurePathExistsOnAdd = c.ensurePathExistsOnAdd
 
 		out, err := applyPatchWithOptions(c.doc, c.patch, options)
 
