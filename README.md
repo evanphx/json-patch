@@ -53,7 +53,7 @@ When `AllowMissingPathOnRemove` is set to `true`, `jsonpatch.ApplyWithOptions` w
 returning an error when hitting a missing `path` on `remove`.
 
 When `EnsurePathExistsOnAdd` is set to `true`, `jsonpatch.ApplyWithOptions` will make sure
-that `add` operations produce all the `path` elements that are be missing from the target object.
+that `add` operations produce all the `path` elements that are missing from the target object.
 
 Use `jsonpatch.NewApplyOptions` to create an instance of `jsonpatch.ApplyOptions`
 whose values are populated from the global configuration variables.
