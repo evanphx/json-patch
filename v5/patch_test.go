@@ -198,13 +198,6 @@ var Cases = []Case{
 		false,
 	},
 	{
-		`{ "foo": ["bar"]}`,
-		`[ { "op": "replace", "path": "/foo/-1", "value": "baz"}]`,
-		`{ "foo": ["baz"]}`,
-		false,
-		false,
-	},
-	{
 		`{ "foo": ["bar","baz"]}`,
 		`[ { "op": "replace", "path": "/foo/0", "value": "bum"}]`,
 		`{ "foo": ["bum","baz"]}`,
@@ -421,13 +414,6 @@ var Cases = []Case{
 		`{}`,
 		`[ { "op": "add", "path": "/a/0/0", "value": "hello" } ]`,
 		`{"a": [["hello"]]}`,
-		false,
-		true,
-	},
-	{
-		`{"a": [{}]}`,
-		`[ { "op": "add", "path": "/a/-1/b/c", "value": "hello" } ]`,
-		`{"a": [{"b": {"c": "hello"}}]}`,
 		false,
 		true,
 	},
