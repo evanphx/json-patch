@@ -27,6 +27,10 @@ var (
 	// SupportDeleteByValue decides whether to support non-standard practice of
 	// allowing deleting from array with value.
 	SupportDeleteByValue bool = true
+	// SupportDeleteObjectByPartialValue decides whether to support non-standard practice of
+	// allowing deleting from array with value when the value is an object and only partial value
+	// is specified in delete request.
+	SupportDeleteObjectByPartialValue bool = true
 )
 
 var (
@@ -519,16 +523,16 @@ func (d *partialArray) removeByValue(key *lazyNode) error {
 			}
 			return false
 		}
-		if isObject(string(*key.raw)) {
+		if SupportDeleteObjectByPartialValue && isObject(string(*key.raw)) {
 			if !isObject(string(*v.raw)) {
 				return errors.Wrapf(ErrInvalidIndex, "value not found")
 			}
-			keyMap := make(map[string] interface{})
 			valueMap := make(map[string] interface{})
 			err := json.Unmarshal([]byte(*v.raw), &valueMap)
 			if err != nil {
 				return errors.Wrapf(ErrInvalidIndex, "value not found")
 			}
+			keyMap := make(map[string] interface{})
 			err = json.Unmarshal([]byte(*key.raw), &keyMap)
 			if err != nil {
 				return errors.Wrapf(ErrInvalidIndex, "value not found")
