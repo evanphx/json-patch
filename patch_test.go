@@ -91,6 +91,36 @@ var Cases = []Case{
 		`{ "foo": [ "bar", "baz" ] }`,
 	},
 	{
+		`{ "foo": [ "bar", "qux", "baz" ] }`,
+		`[ { "op": "remove", "path": "/foo/-" , "value": "qux" }]`,
+		`{ "foo": [ "bar", "baz" ] }`,
+	},
+	{
+		`{ "foo": [ "3", "2", "1" ] }`,
+		`[ { "op": "remove", "path": "/foo/-" , "value": "1" }]`,
+		`{ "foo": [ "3", "2" ] }`,
+	},
+	{
+		`{ "foo": [ [ "bar", "qux", "baz" ], [ "bar", "baz" ], "1" ] }`,
+		`[ { "op": "remove", "path": "/foo/-" , "value": [ "bar", "baz" ] }]`,
+		`{ "foo": [ [ "bar", "qux", "baz" ], "1" ] }`,
+	},
+	{
+		`{ "foo": [ {"1": "3"}, {"2": "1"} ] }`,
+		`[ { "op": "remove", "path": "/foo/-", "value": { "1": "3"} }]`,
+		`{ "foo": [ {"2": "1"} ] }`,
+	},
+	{
+		`{ "foo": [ {"1": "3", "4": "5"}, {"2": "1"} ] }`,
+		`[ { "op": "remove", "path": "/foo/-", "value": { "1": "3"} }]`,
+		`{ "foo": [ {"2": "1"} ] }`,
+	},
+	{
+		`{ "foo": [ {"1": "3", "4": "5", "5": "6"}, {"2": "1"} ] }`,
+		`[ { "op": "remove", "path": "/foo/-", "value": { "1": "3", "5":"6", "4":"5"} }]`,
+		`{ "foo": [ {"2": "1"} ] }`,
+	},
+	{
 		`{ "baz": "qux", "foo": "bar" }`,
 		`[ { "op": "replace", "path": "/baz", "value": "boo" } ]`,
 		`{ "baz": "boo", "foo": "bar" }`,
@@ -185,6 +215,11 @@ var Cases = []Case{
 		`{ "foo": ["bar"]}`,
 		`[{"op": "copy", "path": "/foo/0", "from": "/foo"}]`,
 		`{ "foo": [["bar"], "bar"]}`,
+	},
+	{
+		`{ "foo": null}`,
+		`[{"op": "copy", "path": "/bar", "from": "/foo"}]`,
+		`{ "foo": null, "bar": null}`,
 	},
 	{
 		`{ "foo": ["bar","qux","baz"]}`,
@@ -292,6 +327,10 @@ var BadCases = []BadCase{
 	},
 	{
 		`{ "foo": []}`,
+		`[ {"op": "remove", "path": "/foo/-", "value": "asd"}]`,
+	},
+	{
+		`{ "foo": []}`,
 		`[ {"op": "remove", "path": "/foo/-1"}]`,
 	},
 	{
@@ -331,6 +370,15 @@ var BadCases = []BadCase{
 	{
 		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
 		`[ { "op": "move", "from": "/foo/1", "path": "/foo/4" } ]`,
+	},
+	{
+		`{ "baz": "qux" }`,
+		`[ { "op": "replace", "path": "/foo", "value": "bar" } ]`,
+	},
+	// Can't copy from non-existent "from" key.
+	{
+		`{ "foo": "bar"}`,
+		`[{"op": "copy", "path": "/qux", "from": "/baz"}]`,
 	},
 }
 
@@ -458,6 +506,18 @@ var TestCases = []TestCase{
 		`[ { "op": "test", "path": "/foo"} ]`,
 		false,
 		"/foo",
+	},
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "test", "path": "/baz", "value": "bar" } ]`,
+		false,
+		"/baz",
+	},
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "test", "path": "/baz", "value": null } ]`,
+		true,
+		"/baz",
 	},
 }
 

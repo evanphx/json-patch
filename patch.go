@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
+	"reflect"
 	"github.com/pkg/errors"
 )
 
@@ -24,6 +24,9 @@ var (
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
 	// "copy" operations in a patch.
 	AccumulatedCopySizeLimit int64 = 0
+	// SupportDeleteByValue decides whether to support non-standard practice of
+	// allowing deleting from array with value.
+	SupportDeleteByValue bool = true
 )
 
 var (
@@ -392,13 +395,17 @@ func (d *partialDoc) add(key string, val *lazyNode) error {
 }
 
 func (d *partialDoc) get(key string) (*lazyNode, error) {
-	return (*d)[key], nil
+	v, ok := (*d)[key]
+	if !ok {
+		return v, errors.Wrapf(ErrMissing, "unable to get nonexistent key: %s", key)
+	}
+	return v, nil
 }
 
 func (d *partialDoc) remove(key string) error {
 	_, ok := (*d)[key]
 	if !ok {
-		return errors.Wrapf(ErrMissing, "Unable to remove nonexistent key: %s", key)
+		return errors.Wrapf(ErrMissing, "unable to remove nonexistent key: %s", key)
 	}
 
 	delete(*d, key)
@@ -501,6 +508,49 @@ func (d *partialArray) remove(key string) error {
 
 }
 
+func (d *partialArray) removeByValue(key *lazyNode) error {
+	for i, v := range *d {
+		// RFC 7159, defines JSON whitespace as: (Space; Horizontal tab; Line feed or New line; Carriage return)
+		getTrimmedString := func(x string) string { return string(bytes.TrimLeft(*v.raw, " \t\r\n")) }
+		isObject := func(input string) bool {
+			s := getTrimmedString(input)
+			if len(s) > 0 && s[0] == '{' {
+				return true
+			}
+			return false
+		}
+		if isObject(string(*key.raw)) {
+			if !isObject(string(*v.raw)) {
+				return errors.Wrapf(ErrInvalidIndex, "value not found")
+			}
+			keyMap := make(map[string] interface{})
+			valueMap := make(map[string] interface{})
+			err := json.Unmarshal([]byte(*v.raw), &valueMap)
+			if err != nil {
+				return errors.Wrapf(ErrInvalidIndex, "value not found")
+			}
+			err = json.Unmarshal([]byte(*key.raw), &keyMap)
+			if err != nil {
+				return errors.Wrapf(ErrInvalidIndex, "value not found")
+			}
+			matchCount := 0
+			for k, v := range valueMap {
+				inputVal, ok := keyMap[k]
+				if ok && reflect.DeepEqual(inputVal, v) {
+					matchCount++
+				}
+			}
+			if matchCount == len(keyMap) {
+				return d.remove(strconv.Itoa(i))
+			}
+		} else if key.equal(v) {
+			return d.remove(strconv.Itoa(i))
+		}
+	}
+
+	return errors.Wrapf(ErrInvalidIndex, "value not found")
+}
+
 func (p Patch) add(doc *container, op Operation) error {
 	path, err := op.Path()
 	if err != nil {
@@ -533,7 +583,18 @@ func (p Patch) remove(doc *container, op Operation) error {
 		return errors.Wrapf(ErrMissing, "remove operation does not apply: doc is missing path: \"%s\"", path)
 	}
 
-	err = con.remove(key)
+	if key == "-" && SupportDeleteByValue {
+		value := op.value()
+		switch v := con.(type) {
+		case *partialArray:
+			err = v.removeByValue(value)
+		default:
+			return errors.Wrapf(ErrInvalid, "cannot delete by value from a non-array")
+		}
+	} else {
+		err = con.remove(key)
+	}
+
 	if err != nil {
 		return errors.Wrapf(err, "error in remove for path: '%s'", path)
 	}
@@ -620,7 +681,7 @@ func (p Patch) test(doc *container, op Operation) error {
 	}
 
 	val, err := con.get(key)
-	if err != nil {
+	if err != nil && errors.Cause(err) != ErrMissing {
 		return errors.Wrapf(err, "error in test for path: '%s'", path)
 	}
 
