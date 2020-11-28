@@ -45,12 +45,15 @@ An alternative to `jsonpatch.Apply` is `jsonpatch.ApplyWithOptions` whose behavi
 is controlled by an `options` parameter of type `*jsonpatch.ApplyOptions`.
 
 Structure `jsonpatch.ApplyOptions` includes the configuration options above 
-and adds a new option: `AllowMissingPathOnRemove`.
+and adds two new options: `AllowMissingPathOnRemove` and `EnsurePathExistsOnAdd`.
 
 When `AllowMissingPathOnRemove` is set to `true`, `jsonpatch.ApplyWithOptions` will ignore
 `remove` operations whose `path` points to a non-existent location in the JSON document.
 `AllowMissingPathOnRemove` defaults to `false` which will lead to `jsonpatch.ApplyWithOptions`
 returning an error when hitting a missing `path` on `remove`.
+
+When `EnsurePathExistsOnAdd` is set to `true`, `jsonpatch.ApplyWithOptions` will make sure
+that `add` operations produce all the `path` elements that are missing from the target object.
 
 Use `jsonpatch.NewApplyOptions` to create an instance of `jsonpatch.ApplyOptions`
 whose values are populated from the global configuration variables.

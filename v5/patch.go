@@ -32,6 +32,10 @@ var (
 	ErrUnknownType  = errors.New("unknown object type")
 	ErrInvalid      = errors.New("invalid state detected")
 	ErrInvalidIndex = errors.New("invalid index referenced")
+
+	rawJSONArray  = []byte("[]")
+	rawJSONObject = []byte("{}")
+	rawJSONNull   = []byte("null")
 )
 
 type lazyNode struct {
@@ -70,6 +74,9 @@ type ApplyOptions struct {
 	// AllowMissingPathOnRemove indicates whether to fail "remove" operations when the target path is missing.
 	// Default to false.
 	AllowMissingPathOnRemove bool
+	// EnsurePathExistsOnAdd instructs json-patch to recursively create the missing parts of path on "add" operation.
+	// Default to false.
+	EnsurePathExistsOnAdd bool
 }
 
 // NewApplyOptions creates a default set of options for calls to ApplyWithOptions.
@@ -78,11 +85,18 @@ func NewApplyOptions() *ApplyOptions {
 		SupportNegativeIndices:   SupportNegativeIndices,
 		AccumulatedCopySizeLimit: AccumulatedCopySizeLimit,
 		AllowMissingPathOnRemove: false,
+		EnsurePathExistsOnAdd:    false,
 	}
 }
 
 func newLazyNode(raw *json.RawMessage) *lazyNode {
 	return &lazyNode{raw: raw, doc: nil, ary: nil, which: eRaw}
+}
+
+func newRawMessage(buf []byte) *json.RawMessage {
+	ra := make(json.RawMessage, len(buf))
+	copy(ra, buf)
+	return &ra
 }
 
 func (n *lazyNode) MarshalJSON() ([]byte, error) {
@@ -115,9 +129,7 @@ func deepCopy(src *lazyNode) (*lazyNode, int, error) {
 		return nil, 0, err
 	}
 	sz := len(a)
-	ra := make(json.RawMessage, sz)
-	copy(ra, a)
-	return newLazyNode(&ra), sz, nil
+	return newLazyNode(newRawMessage(a)), sz, nil
 }
 
 func (n *lazyNode) intoDoc() (*partialDoc, error) {
@@ -443,6 +455,7 @@ func (d *partialArray) set(key string, val *lazyNode) error {
 	if err != nil {
 		return err
 	}
+
 	(*d)[idx] = val
 	return nil
 }
@@ -543,6 +556,10 @@ func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {
 		return errors.Wrapf(ErrMissing, "add operation failed to decode path")
 	}
 
+	if options.EnsurePathExistsOnAdd {
+		ensurePathExists(doc, path, options)
+	}
+
 	con, key := findObject(doc, path)
 
 	if con == nil {
@@ -552,6 +569,87 @@ func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {
 	err = con.add(key, op.value(), options)
 	if err != nil {
 		return errors.Wrapf(err, "error in add for path: '%s'", path)
+	}
+
+	return nil
+}
+
+// Given a document and a path to a key, walk the path and create all missing elements
+// creating objects and arrays as needed.
+func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
+	doc := *pd
+
+	var err error
+	var arrIndex int
+
+	split := strings.Split(path, "/")
+
+	if len(split) < 2 {
+		return nil
+	}
+
+	parts := split[1:]
+
+	for pi, part := range parts {
+
+		// Have we reached the key part of the path?
+		// If yes, we're done.
+		if pi == len(parts)-1 {
+			return nil
+		}
+
+		target, ok := doc.get(decodePatchKey(part))
+
+		if target == nil || ok != nil {
+
+			// If the current container is an array which has fewer elements than our target index,
+			// pad the current container with nulls.
+			if arrIndex, err = strconv.Atoi(part); err == nil {
+				pa, ok := doc.(*partialArray)
+
+				if ok && arrIndex >= len(*pa)+1 {
+					// Pad the array with null values up to the required index.
+					for i := len(*pa); i <= arrIndex-1; i++ {
+						doc.add(strconv.Itoa(i), newLazyNode(newRawMessage(rawJSONNull)), options)
+					}
+				}
+			}
+
+			// Check if the next part is a numeric index.
+			// If yes, then create an array, otherwise, create an object.
+			if arrIndex, err = strconv.Atoi(parts[pi+1]); err == nil {
+				if arrIndex < 0 {
+					return errors.Wrapf(ErrInvalidIndex, "cannot ensure path with negative index: %d", arrIndex)
+				}
+				newNode := newLazyNode(newRawMessage(rawJSONArray))
+				doc.add(part, newNode, options)
+				doc, _ = newNode.intoAry()
+
+				// Pad the new array with null values up to the required index.
+				for i := 0; i < arrIndex; i++ {
+					doc.add(strconv.Itoa(i), newLazyNode(newRawMessage(rawJSONNull)), options)
+				}
+			} else {
+				newNode := newLazyNode(newRawMessage(rawJSONObject))
+
+				doc.add(part, newNode, options)
+				doc, _ = newNode.intoDoc()
+			}
+		} else {
+			if isArray(*target.raw) {
+				doc, err = target.intoAry()
+
+				if err != nil {
+					return err
+				}
+			} else {
+				doc, err = target.intoDoc()
+
+				if err != nil {
+					return err
+				}
+			}
+		}
 	}
 
 	return nil
@@ -727,13 +825,8 @@ func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64, op
 
 // Equal indicates if 2 JSON documents have the same structural equality.
 func Equal(a, b []byte) bool {
-	ra := make(json.RawMessage, len(a))
-	copy(ra, a)
-	la := newLazyNode(&ra)
-
-	rb := make(json.RawMessage, len(b))
-	copy(rb, b)
-	lb := newLazyNode(&rb)
+	la := newLazyNode(newRawMessage(a))
+	lb := newLazyNode(newRawMessage(b))
 
 	return la.equal(lb)
 }
