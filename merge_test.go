@@ -178,7 +178,7 @@ func TestMergePatchFailRFCCases(t *testing.T) {
 
 		out, err := MergePatch([]byte(doc), []byte(pat))
 
-		if err != errBadJSONPatch {
+		if err != ErrBadJSONPatch {
 			t.Errorf("error not returned properly: %s, %s", err, string(out))
 		}
 	}
