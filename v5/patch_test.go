@@ -426,6 +426,27 @@ var Cases = []Case{
 	},
 	{
 		`{}`,
+		`[ { "op": "add", "path": "/a/b/-1", "value": "hello" } ]`,
+		`{"a": {"b": ["hello"] } }`,
+		false,
+		true,
+	},
+	{
+		`{}`,
+		`[ { "op": "add", "path": "/a/b/-1/c", "value": "hello" } ]`,
+		`{"a": {"b": [ { "c": "hello" } ] } }`,
+		false,
+		true,
+	},
+	{
+		`{"a": {"b": [ { "c": "whatever" } ] } }`,
+		`[ { "op": "add", "path": "/a/b/-1/c", "value": "hello" } ]`,
+		`{"a": {"b": [ { "c": "hello" } ] } }`,
+		false,
+		true,
+	},
+	{
+		`{}`,
 		`[ { "op": "add", "path": "/a/b/3", "value": "hello" } ]`,
 		`{"a": {"b": [null, null, null, "hello"] } }`,
 		false,
