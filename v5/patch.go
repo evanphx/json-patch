@@ -577,7 +577,11 @@ func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {
 	}
 
 	if options.EnsurePathExistsOnAdd {
-		ensurePathExists(doc, path, options)
+		err = ensurePathExists(doc, path, options)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	con, key := findObject(doc, path, options)
@@ -639,8 +643,18 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 			// If yes, then create an array, otherwise, create an object.
 			if arrIndex, err = strconv.Atoi(parts[pi+1]); err == nil {
 				if arrIndex < 0 {
-					return errors.Wrapf(ErrInvalidIndex, "cannot ensure path with negative index: %d", arrIndex)
+
+					if !options.SupportNegativeIndices {
+						return errors.Wrapf(ErrInvalidIndex, "Unable to ensure path for invalid index: %d", arrIndex)
+					}
+
+					if arrIndex < -1 {
+						return errors.Wrapf(ErrInvalidIndex, "Unable to ensure path for negative index other than -1: %d", arrIndex)
+					}
+
+					arrIndex = 0
 				}
+
 				newNode := newLazyNode(newRawMessage(rawJSONArray))
 				doc.add(part, newNode, options)
 				doc, _ = newNode.intoAry()
