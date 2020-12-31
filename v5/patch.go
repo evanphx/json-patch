@@ -24,6 +24,10 @@ var (
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
 	// "copy" operations in a patch.
 	AccumulatedCopySizeLimit int64 = 0
+	startObject                    = json.Delim('{')
+	endObject                      = json.Delim('}')
+	startArray                     = json.Delim('[')
+	endArray                     = json.Delim(']')
 )
 
 var (
@@ -40,7 +44,7 @@ var (
 
 type lazyNode struct {
 	raw   *json.RawMessage
-	doc   partialDoc
+	doc   *partialDoc
 	ary   partialArray
 	which int
 }
@@ -51,7 +55,15 @@ type Operation map[string]*json.RawMessage
 // Patch is an ordered collection of Operations.
 type Patch []Operation
 
-type partialDoc map[string]*lazyNode
+type partialDoc struct {
+	items []docItem
+	obj   map[string]*lazyNode
+}
+type docItem struct {
+	Key   string
+	Value *lazyNode
+}
+
 type partialArray []*lazyNode
 
 type container interface {
@@ -120,6 +132,109 @@ func (n *lazyNode) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (n *partialDoc) MarshalJSON() ([]byte, error) {
+	buf := bytes.Buffer{}
+	if _, err := buf.WriteString("{"); err != nil {
+		return nil, err
+	}
+	for i, item := range n.items {
+		if i > 0 {
+			if _, err := buf.WriteString(", "); err != nil {
+				return nil, err
+			}
+		}
+		key, err := json.Marshal(item.Key)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := buf.Write(key); err != nil {
+			return nil, err
+		}
+		if _, err := buf.WriteString(": "); err != nil {
+			return nil, err
+		}
+		value, err := json.Marshal(item.Value)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := buf.Write(value); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := buf.WriteString("}"); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+type syntaxError struct {
+	msg string
+}
+
+func (err *syntaxError) Error() string {
+	return err.msg
+}
+
+func (n *partialDoc) UnmarshalJSON(data []byte) error {
+	if err := json.Unmarshal(data, &n.obj); err != nil {
+		return err
+	}
+	buffer := bytes.NewBuffer(data)
+	d := json.NewDecoder(buffer)
+	if t, err := d.Token(); err != nil {
+		return err
+	} else if t != startObject {
+		return &syntaxError{fmt.Sprintf("unexpected JSON token in document node: %s", t)}
+	}
+	for d.More() {
+		k, err := d.Token()
+		if err != nil {
+			return err
+		}
+		key, ok := k.(string)
+		if !ok {
+			return &syntaxError{fmt.Sprintf("unexpected JSON token as document node key: %s", k)}
+		}
+		if err := skipValue(d); err != nil {
+			return err
+		}
+		n.items = append(n.items, docItem{Key: key, Value: n.obj[key]})
+	}
+	return nil
+}
+
+func skipValue(d *json.Decoder) error {
+	t, err := d.Token()
+	if err != nil {
+		return err
+	}
+	if t != startObject && t != startArray {
+		return nil
+	}
+	for d.More() {
+		if t == startObject {
+			// consume key token
+			if _, err := d.Token(); err != nil {
+				return err
+			}
+		}
+		if err := skipValue(d); err != nil {
+			return err
+		}
+	}
+	end, err := d.Token()
+	if err != nil {
+		return err
+	}
+	if t == startObject && end != endObject {
+		return &syntaxError{msg: "expected close object token"}
+	}
+	if t == startArray && end != endArray {
+		return &syntaxError{msg: "expected close object token"}
+	}
+	return nil
+}
+
 func deepCopy(src *lazyNode) (*lazyNode, int, error) {
 	if src == nil {
 		return nil, 0, nil
@@ -134,7 +249,7 @@ func deepCopy(src *lazyNode) (*lazyNode, int, error) {
 
 func (n *lazyNode) intoDoc() (*partialDoc, error) {
 	if n.which == eDoc {
-		return &n.doc, nil
+		return n.doc, nil
 	}
 
 	if n.raw == nil {
@@ -148,7 +263,7 @@ func (n *lazyNode) intoDoc() (*partialDoc, error) {
 	}
 
 	n.which = eDoc
-	return &n.doc, nil
+	return n.doc, nil
 }
 
 func (n *lazyNode) intoAry() (*partialArray, error) {
@@ -238,12 +353,12 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 			return false
 		}
 
-		if len(n.doc) != len(o.doc) {
+		if len(n.doc.obj) != len(o.doc.obj) {
 			return false
 		}
 
-		for k, v := range n.doc {
-			ov, ok := o.doc[k]
+		for k, v := range n.doc.obj {
+			ov, ok := o.doc.obj[k]
 
 			if !ok {
 				return false
@@ -418,17 +533,28 @@ func findObject(pd *container, path string, options *ApplyOptions) (container, s
 }
 
 func (d *partialDoc) set(key string, val *lazyNode, options *ApplyOptions) error {
-	(*d)[key] = val
+	idx := -1
+	for i, item := range d.items {
+		if item.Key == key {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		idx = len(d.items)
+		d.items = append(d.items, docItem{Key: key})
+	}
+	d.items[idx].Value = val
+	d.obj[key] = val
 	return nil
 }
 
 func (d *partialDoc) add(key string, val *lazyNode, options *ApplyOptions) error {
-	(*d)[key] = val
-	return nil
+	return d.set(key, val, options)
 }
 
 func (d *partialDoc) get(key string, options *ApplyOptions) (*lazyNode, error) {
-	v, ok := (*d)[key]
+	v, ok := d.obj[key]
 	if !ok {
 		return v, errors.Wrapf(ErrMissing, "unable to get nonexistent key: %s", key)
 	}
@@ -436,15 +562,22 @@ func (d *partialDoc) get(key string, options *ApplyOptions) (*lazyNode, error) {
 }
 
 func (d *partialDoc) remove(key string, options *ApplyOptions) error {
-	_, ok := (*d)[key]
+	_, ok := d.obj[key]
 	if !ok {
 		if options.AllowMissingPathOnRemove {
 			return nil
 		}
 		return errors.Wrapf(ErrMissing, "unable to remove nonexistent key: %s", key)
 	}
-
-	delete(*d, key)
+	idx := -1
+	for i, item := range d.items {
+		if item.Key == key {
+			idx = i
+			break
+		}
+	}
+	d.items = append(d.items[0:idx], d.items[idx+1:]...)
+	delete(d.obj, key)
 	return nil
 }
 

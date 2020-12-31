@@ -62,7 +62,7 @@ func TestMergePatchRecursesIntoObjects(t *testing.T) {
 	exp := `{ "person": { "title": "goodbye", "age": 18 } }`
 
 	if !compareJSON(exp, res) {
-		t.Fatalf("Key was not replaced")
+		t.Fatalf("Key was not replaced: %s", res)
 	}
 }
 
