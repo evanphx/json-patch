@@ -43,6 +43,22 @@ func applyPatch(doc, patch string) (string, error) {
 	return string(out), nil
 }
 
+func applyPatchIndented(doc, patch string) (string, error) {
+	obj, err := DecodePatch([]byte(patch))
+
+	if err != nil {
+		panic(err)
+	}
+
+	out, err := obj.ApplyIndent([]byte(doc), "  ")
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(out), nil
+}
+
 func applyPatchWithOptions(doc, patch string, options *ApplyOptions) (string, error) {
 	obj, err := DecodePatch([]byte(patch))
 
@@ -619,19 +635,21 @@ func TestAllCases(t *testing.T) {
 	defer configureGlobals(int64(100))()
 
 	// Test patch.Apply happy-path cases.
-	for _, c := range Cases {
-		if !c.allowMissingPathOnRemove && !c.ensurePathExistsOnAdd {
-			out, err := applyPatch(c.doc, c.patch)
+	for i, c := range Cases {
+		t.Run(fmt.Sprintf("Case %d", i), func(t *testing.T) {
+			if !c.allowMissingPathOnRemove && !c.ensurePathExistsOnAdd {
+				out, err := applyPatch(c.doc, c.patch)
 
-			if err != nil {
-				t.Errorf("Unable to apply patch: %s", err)
-			}
+				if err != nil {
+					t.Errorf("Unable to apply patch: %s", err)
+				}
 
-			if !compareJSON(out, c.result) {
-				t.Errorf("Patch did not apply. Expected:\n%s\n\nActual:\n%s",
-					reformatJSON(c.result), reformatJSON(out))
+				if !compareJSON(out, c.result) {
+					t.Errorf("Patch did not apply. Expected:\n%s\n\nActual:\n%s",
+						reformatJSON(c.result), reformatJSON(out))
+				}
 			}
-		}
+		})
 	}
 
 	// Test patch.ApplyWithOptions happy-path cases.
@@ -954,6 +972,95 @@ func TestEquality(t *testing.T) {
 			got = Equal([]byte(tc.b), []byte(tc.a))
 			if got != tc.equal {
 				t.Errorf("Expected Equal(%s, %s) to return %t, but got %t", tc.b, tc.a, tc.equal, got)
+			}
+		})
+	}
+}
+
+func TestMaintainOrdering(t *testing.T) {
+	cases := []struct {
+		doc      string
+		patch    string
+		expected string
+	}{
+		{
+			`{"z":"1","a":["baz"],"y":3,"b":true,"x":null}`,
+			`[{"op": "add", "path": "/foo", "value": "bar"}]`,
+			`{"z":"1","a":["baz"],"y":3,"b":true,"x":null,"foo":"bar"}`,
+		},
+		{
+			`{"z":"1","a":["baz"],"y":3,"b":true,"x":null}`,
+			`[{"op": "remove", "path": "/y"}]`,
+			`{"z":"1","a":["baz"],"b":true,"x":null}`,
+		},
+		{
+			`{"z":"1","a":["baz"],"y":3,"b":true,"x":null}`,
+			`[{"op": "move", "from": "/z", "path": "/a/-"},{"op": "remove", "path": "/y"}]`,
+			`{"a":["baz","1"],"b":true,"x":null}`,
+		},
+		{
+			`{"z":"1","a":["baz"],"y":3,"b":true,"x":null}`,
+			`[
+               {"op": "add", "path": "/foo", "value": "bar"},
+               {"op": "replace", "path": "/b", "value": {"zz":1,"aa":"foo","yy":true,"bb":null}},
+               {"op": "copy", "from": "/foo", "path": "/b/cc"},
+               {"op": "move", "from": "/z", "path": "/a/0"},
+               {"op": "remove", "path": "/y"}
+             ]`,
+			`{"a":["1","baz"],"b":{"zz":1,"aa":"foo","yy":true,"bb":null,"cc":"bar"},"x":null,"foo":"bar"}`,
+		},
+	}
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			res, err := applyPatch(c.doc, c.patch)
+			if err != nil {
+				t.Errorf("unexpected error: %+v", err)
+			} else if res != c.expected {
+				t.Errorf("expected:\n%s\ngot:\n%s", c.expected, res)
+			}
+		})
+	}
+}
+
+func TestMaintainOrderingIndented(t *testing.T) {
+	cases := []struct {
+		doc      string
+		patch    string
+		expected string
+	}{
+		{
+			`{"z":"1","a":["baz"],"y":3,"b":true,"x":null}`,
+			`[
+               {"op": "add", "path": "/foo", "value": "bar"},
+               {"op": "replace", "path": "/b", "value": {"zz":1,"aa":"foo","yy":true,"bb":null}},
+               {"op": "copy", "from": "/foo", "path": "/b/cc"},
+               {"op": "move", "from": "/z", "path": "/a/0"},
+               {"op": "remove", "path": "/y"}
+             ]`,
+			`{
+  "a": [
+    "1",
+    "baz"
+  ],
+  "b": {
+    "zz": 1,
+    "aa": "foo",
+    "yy": true,
+    "bb": null,
+    "cc": "bar"
+  },
+  "x": null,
+  "foo": "bar"
+}`,
+		},
+	}
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			res, err := applyPatchIndented(c.doc, c.patch)
+			if err != nil {
+				t.Errorf("unexpected error: %+v", err)
+			} else if res != c.expected {
+				t.Errorf("expected:\n%s\ngot:\n%s", c.expected, res)
 			}
 		})
 	}
