@@ -56,12 +56,8 @@ type Operation map[string]*json.RawMessage
 type Patch []Operation
 
 type partialDoc struct {
-	items []docItem
+	keys []string
 	obj   map[string]*lazyNode
-}
-type docItem struct {
-	Key   string
-	Value *lazyNode
 }
 
 type partialArray []*lazyNode
@@ -137,13 +133,13 @@ func (n *partialDoc) MarshalJSON() ([]byte, error) {
 	if _, err := buf.WriteString("{"); err != nil {
 		return nil, err
 	}
-	for i, item := range n.items {
+	for i, k := range n.keys {
 		if i > 0 {
 			if _, err := buf.WriteString(", "); err != nil {
 				return nil, err
 			}
 		}
-		key, err := json.Marshal(item.Key)
+		key, err := json.Marshal(k)
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +149,7 @@ func (n *partialDoc) MarshalJSON() ([]byte, error) {
 		if _, err := buf.WriteString(": "); err != nil {
 			return nil, err
 		}
-		value, err := json.Marshal(item.Value)
+		value, err := json.Marshal(n.obj[k])
 		if err != nil {
 			return nil, err
 		}
@@ -198,7 +194,7 @@ func (n *partialDoc) UnmarshalJSON(data []byte) error {
 		if err := skipValue(d); err != nil {
 			return err
 		}
-		n.items = append(n.items, docItem{Key: key, Value: n.obj[key]})
+		n.keys = append(n.keys, key)
 	}
 	return nil
 }
@@ -533,18 +529,16 @@ func findObject(pd *container, path string, options *ApplyOptions) (container, s
 }
 
 func (d *partialDoc) set(key string, val *lazyNode, options *ApplyOptions) error {
-	idx := -1
-	for i, item := range d.items {
-		if item.Key == key {
-			idx = i
+	found := false
+	for _, k := range d.keys {
+		if k == key {
+			found = true
 			break
 		}
 	}
-	if idx == -1 {
-		idx = len(d.items)
-		d.items = append(d.items, docItem{Key: key})
+	if !found {
+		d.keys = append(d.keys, key)
 	}
-	d.items[idx].Value = val
 	d.obj[key] = val
 	return nil
 }
@@ -570,13 +564,13 @@ func (d *partialDoc) remove(key string, options *ApplyOptions) error {
 		return errors.Wrapf(ErrMissing, "unable to remove nonexistent key: %s", key)
 	}
 	idx := -1
-	for i, item := range d.items {
-		if item.Key == key {
+	for i, k := range d.keys {
+		if k == key {
 			idx = i
 			break
 		}
 	}
-	d.items = append(d.items[0:idx], d.items[idx+1:]...)
+	d.keys = append(d.keys[0:idx], d.keys[idx+1:]...)
 	delete(d.obj, key)
 	return nil
 }

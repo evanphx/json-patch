@@ -31,16 +31,14 @@ func mergeDocs(doc, patch *partialDoc, mergeMerge bool) {
 		if v == nil {
 			if mergeMerge {
 				idx := -1
-				for i, item := range doc.items {
-					if item.Key == k {
+				for i, key := range doc.keys {
+					if key == k {
 						idx = i
 						break
 					}
 				}
 				if idx == -1 {
-					doc.items = append(doc.items, docItem{Key: k, Value: nil})
-				} else {
-					doc.items[idx].Value = nil
+					doc.keys = append(doc.keys, k)
 				}
 				doc.obj[k] = nil
 			} else {
