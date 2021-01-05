@@ -129,7 +129,7 @@ func (n *lazyNode) UnmarshalJSON(data []byte) error {
 }
 
 func (n *partialDoc) MarshalJSON() ([]byte, error) {
-	buf := bytes.Buffer{}
+	var buf bytes.Buffer
 	if _, err := buf.WriteString("{"); err != nil {
 		return nil, err
 	}
