@@ -1026,23 +1026,27 @@ func (p Patch) ApplyIndent(doc []byte, indent string) ([]byte, error) {
 // ApplyIndentWithOptions mutates a JSON document according to the patch and the passed in ApplyOptions.
 // It returns the new document indented.
 func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyOptions) ([]byte, error) {
-	var pd container
-	if doc[0] == '[' {
-		pd = &partialArray{}
-	} else {
-		pd = &partialDoc{}
-	}
-
-	err := json.Unmarshal(doc, pd)
-
+	pd, err := createContainer(doc)
 	if err != nil {
 		return nil, err
 	}
 
-	err = nil
+	err = p.applyIndentWithOptions(pd, options)
+	if err != nil {
+		return nil, err
+	}
 
+	if indent != "" {
+		return json.MarshalIndent(pd, "", indent)
+	}
+
+	return json.Marshal(pd)
+}
+
+func (p Patch) applyIndentWithOptions(pd container, options *ApplyOptions) error {
 	var accumulatedCopySize int64
 
+	var err error
 	for _, op := range p {
 		switch op.Kind() {
 		case "add":
@@ -1062,15 +1066,28 @@ func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyO
 		}
 
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	if indent != "" {
-		return json.MarshalIndent(pd, "", indent)
+	return err
+}
+
+func createContainer(doc []byte) (container, error) {
+	var pd container
+	if doc[0] == '[' {
+		pd = &partialArray{}
+	} else {
+		pd = &partialDoc{}
 	}
 
-	return json.Marshal(pd)
+	err := json.Unmarshal(doc, pd)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return pd, nil
 }
 
 // From http://tools.ietf.org/html/rfc6901#section-4 :
