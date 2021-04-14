@@ -2,7 +2,6 @@ package jsonpatch
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 )
 
@@ -217,9 +216,8 @@ func Test_multiPatch_ApplyWithOptions(t *testing.T) {
 	}
 
 	type patchWithOptions struct {
-		p       Patch
-		o       ApplyOptions
-		wantErr string
+		p Patch
+		o ApplyOptions
 	}
 	type args struct {
 		doc []byte
@@ -251,8 +249,7 @@ func Test_multiPatch_ApplyWithOptions(t *testing.T) {
 								"value": toJRM(`2`),
 							},
 						},
-						o:       ApplyOptions{},
-						wantErr: "",
+						o: ApplyOptions{},
 					},
 					{
 						p: Patch{
@@ -262,8 +259,7 @@ func Test_multiPatch_ApplyWithOptions(t *testing.T) {
 								"value": toJRM(`3`),
 							},
 						},
-						o:       ApplyOptions{EnsurePathExistsOnAdd: true},
-						wantErr: "unexpected kind: unknown",
+						o: ApplyOptions{EnsurePathExistsOnAdd: true},
 					},
 					{
 						p: Patch{
@@ -301,13 +297,8 @@ func Test_multiPatch_ApplyWithOptions(t *testing.T) {
 			for _, po := range tt.args.po {
 				err := m.ApplyWithOptions(po.p, &po.o)
 				if err != nil {
-					if po.wantErr == "" {
-						t.Errorf("Apply(%v) error = %s", po, err)
-						return
-					} else if !strings.Contains(err.Error(), po.wantErr) {
-						t.Errorf("Apply(%v) expected error = %s, actual error = %s", po, po.wantErr, err)
-						return
-					}
+					t.Errorf("Apply(%v) error = %s", po, err)
+					return
 				}
 			}
 
