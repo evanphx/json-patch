@@ -17,8 +17,11 @@ type Result interface {
 	Array() []Result
 	IsMap() bool
 	Map() map[string]Result
+	IsString() bool
 	String() string
+	IsNumber() bool
 	Number() float64
+	IsBool() bool
 	Bool() bool
 	Exists() bool
 }
@@ -138,6 +141,25 @@ func (r result) Map() map[string]Result {
 	return resultMap
 }
 
+func (r result) IsString() bool {
+	if !r.Exists() || r.IsMap() || r.IsArray() || r.node.raw == nil {
+		return false
+	}
+
+	var value interface{}
+	err := json.Unmarshal(*r.node.raw, &value)
+	if err != nil {
+		return false
+	}
+
+	switch value.(type) {
+	case string:
+		return true
+	}
+
+	return false
+}
+
 func (r result) String() string {
 	if !r.Exists() || r.IsMap() || r.IsArray() || r.node.raw == nil {
 		return ""
@@ -157,6 +179,25 @@ func (r result) String() string {
 	return strValue
 }
 
+func (r result) IsNumber() bool {
+	if !r.Exists() || r.IsMap() || r.IsArray() || r.node.raw == nil {
+		return false
+	}
+
+	var value interface{}
+	err := json.Unmarshal(*r.node.raw, &value)
+	if err != nil {
+		return false
+	}
+
+	switch value.(type) {
+	case float64:
+		return true
+	}
+
+	return false
+}
+
 func (r result) Number() float64 {
 	if !r.Exists() || r.IsMap() || r.IsArray() || r.node.raw == nil {
 		return 0.0
@@ -174,6 +215,25 @@ func (r result) Number() float64 {
 	}
 
 	return numValue
+}
+
+func (r result) IsBool() bool {
+	if !r.Exists() || r.IsMap() || r.IsArray() || r.node.raw == nil {
+		return false
+	}
+
+	var value interface{}
+	err := json.Unmarshal(*r.node.raw, &value)
+	if err != nil {
+		return false
+	}
+
+	switch value.(type) {
+	case bool:
+		return true
+	}
+
+	return false
 }
 
 func (r result) Bool() bool {

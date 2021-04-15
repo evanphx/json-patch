@@ -321,14 +321,17 @@ func Test_multiPatch_Get(t *testing.T) {
 		path string
 	}
 	tests := []struct {
-		name       string
-		args       args
-		wantExists bool
-		wantArray  bool
-		wantMap    bool
-		wantString string
-		wantBool   bool
-		wantNumber float64
+		name         string
+		args         args
+		wantExists   bool
+		wantIsArray  bool
+		wantIsMap    bool
+		wantIsString bool
+		wantString   string
+		wantIsBool   bool
+		wantBool     bool
+		wantIsNumber bool
+		wantNumber   float64
 	}{
 		{
 			name: "empty doc",
@@ -343,8 +346,9 @@ func Test_multiPatch_Get(t *testing.T) {
 				doc:  `{"a": 1}`,
 				path: `/a`,
 			},
-			wantExists: true,
-			wantNumber: 1,
+			wantExists:   true,
+			wantIsNumber: true,
+			wantNumber:   1,
 		},
 		{
 			name: "array",
@@ -352,8 +356,8 @@ func Test_multiPatch_Get(t *testing.T) {
 				doc:  `{"a": [1, 2]}`,
 				path: `/a`,
 			},
-			wantExists: true,
-			wantArray:  true,
+			wantExists:  true,
+			wantIsArray: true,
 		},
 		{
 			name: "map",
@@ -362,7 +366,7 @@ func Test_multiPatch_Get(t *testing.T) {
 				path: `/a`,
 			},
 			wantExists: true,
-			wantMap:    true,
+			wantIsMap:  true,
 		},
 		{
 			name: "element inside of array",
@@ -370,8 +374,9 @@ func Test_multiPatch_Get(t *testing.T) {
 				doc:  `{"a": [1, 2]}`,
 				path: `/a/1`,
 			},
-			wantExists: true,
-			wantNumber: 2,
+			wantExists:   true,
+			wantIsNumber: true,
+			wantNumber:   2,
 		},
 		{
 			name: "element inside of map",
@@ -379,8 +384,8 @@ func Test_multiPatch_Get(t *testing.T) {
 				doc:  `{"a": {"b": [1, 2]}}`,
 				path: `/a/b`,
 			},
-			wantExists: true,
-			wantArray:  true,
+			wantExists:  true,
+			wantIsArray: true,
 		},
 		{
 			name: "string value",
@@ -388,8 +393,19 @@ func Test_multiPatch_Get(t *testing.T) {
 				doc:  `{"a": "b"}`,
 				path: `/a`,
 			},
-			wantExists: true,
-			wantString: "b",
+			wantExists:   true,
+			wantIsString: true,
+			wantString:   "b",
+		},
+		{
+			name: "empty string value",
+			args: args{
+				doc:  `{"a": ""}`,
+				path: `/a`,
+			},
+			wantExists:   true,
+			wantIsString: true,
+			wantString:   "",
 		},
 		{
 			name: "bool value",
@@ -398,7 +414,38 @@ func Test_multiPatch_Get(t *testing.T) {
 				path: `/a`,
 			},
 			wantExists: true,
+			wantIsBool: true,
 			wantBool:   true,
+		},
+		{
+			name: "bool false value",
+			args: args{
+				doc:  `{"a": false}`,
+				path: `/a`,
+			},
+			wantExists: true,
+			wantIsBool: true,
+			wantBool:   false,
+		},
+		{
+			name: "number value",
+			args: args{
+				doc:  `{"a": 99.9}`,
+				path: `/a`,
+			},
+			wantExists:   true,
+			wantIsNumber: true,
+			wantNumber:   99.9,
+		},
+		{
+			name: "0 number value",
+			args: args{
+				doc:  `{"a": 0}`,
+				path: `/a`,
+			},
+			wantExists:   true,
+			wantIsNumber: true,
+			wantNumber:   0,
 		},
 	}
 	for _, tt := range tests {
@@ -418,20 +465,32 @@ func Test_multiPatch_Get(t *testing.T) {
 				return
 			}
 
-			if tt.wantArray != got.IsArray() {
-				t.Errorf("IsArray() expected = %t, actual = %t", tt.wantArray, got.IsArray())
+			if tt.wantIsArray != got.IsArray() {
+				t.Errorf("IsArray() expected = %t, actual = %t", tt.wantIsArray, got.IsArray())
 			}
 
-			if tt.wantMap != got.IsMap() {
-				t.Errorf("IsMap() expected = %t, actual = %t", tt.wantMap, got.IsMap())
+			if tt.wantIsMap != got.IsMap() {
+				t.Errorf("IsMap() expected = %t, actual = %t", tt.wantIsMap, got.IsMap())
+			}
+
+			if tt.wantIsString != got.IsString() {
+				t.Errorf("IsString() expected = %t, actual = %t", tt.wantIsString, got.IsString())
 			}
 
 			if tt.wantString != got.String() {
 				t.Errorf("String() expected = %s, actual = %s", tt.wantString, got.String())
 			}
 
+			if tt.wantIsNumber != got.IsNumber() {
+				t.Errorf("IsNumber() expected = %t, actual = %t", tt.wantIsNumber, got.IsNumber())
+			}
+
 			if tt.wantNumber != got.Number() {
 				t.Errorf("Number() expected = %f, actual = %f", tt.wantNumber, got.Number())
+			}
+
+			if tt.wantIsBool != got.IsBool() {
+				t.Errorf("IsBool() expected = %t, actual = %t", tt.wantIsBool, got.IsBool())
 			}
 
 			if tt.wantBool != got.Bool() {
