@@ -314,3 +314,129 @@ func Test_multiPatch_ApplyWithOptions(t *testing.T) {
 		})
 	}
 }
+
+func Test_multiPatch_Get(t *testing.T) {
+	type args struct {
+		doc  string
+		path string
+	}
+	tests := []struct {
+		name       string
+		args       args
+		wantExists bool
+		wantArray  bool
+		wantMap    bool
+		wantString string
+		wantBool   bool
+		wantNumber float64
+	}{
+		{
+			name: "empty doc",
+			args: args{
+				doc:  `{}`,
+				path: `"/a"`,
+			},
+		},
+		{
+			name: "small doc, node exists",
+			args: args{
+				doc:  `{"a": 1}`,
+				path: `/a`,
+			},
+			wantExists: true,
+			wantNumber: 1,
+		},
+		{
+			name: "array",
+			args: args{
+				doc:  `{"a": [1, 2]}`,
+				path: `/a`,
+			},
+			wantExists: true,
+			wantArray:  true,
+		},
+		{
+			name: "map",
+			args: args{
+				doc:  `{"a": {"b": [1, 2]}}`,
+				path: `/a`,
+			},
+			wantExists: true,
+			wantMap:    true,
+		},
+		{
+			name: "element inside of array",
+			args: args{
+				doc:  `{"a": [1, 2]}`,
+				path: `/a/1`,
+			},
+			wantExists: true,
+			wantNumber: 2,
+		},
+		{
+			name: "element inside of map",
+			args: args{
+				doc:  `{"a": {"b": [1, 2]}}`,
+				path: `/a/b`,
+			},
+			wantExists: true,
+			wantArray:  true,
+		},
+		{
+			name: "string value",
+			args: args{
+				doc:  `{"a": "b"}`,
+				path: `/a`,
+			},
+			wantExists: true,
+			wantString: "b",
+		},
+		{
+			name: "bool value",
+			args: args{
+				doc:  `{"a": true}`,
+				path: `/a`,
+			},
+			wantExists: true,
+			wantBool:   true,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := NewMultiPatch([]byte(tt.args.doc))
+			if err != nil {
+				t.Errorf("NewMultiPatch() error = %s", err)
+				return
+			}
+
+			got := m.Get(tt.args.path)
+			if tt.wantExists != got.Exists() {
+				t.Errorf("Exists() expected = %t, actual = %t", tt.wantExists, got.Exists())
+			}
+			if !tt.wantExists {
+				return
+			}
+
+			if tt.wantArray != got.IsArray() {
+				t.Errorf("IsArray() expected = %t, actual = %t", tt.wantArray, got.IsArray())
+			}
+
+			if tt.wantMap != got.IsMap() {
+				t.Errorf("IsMap() expected = %t, actual = %t", tt.wantMap, got.IsMap())
+			}
+
+			if tt.wantString != got.String() {
+				t.Errorf("String() expected = %s, actual = %s", tt.wantString, got.String())
+			}
+
+			if tt.wantNumber != got.Number() {
+				t.Errorf("Number() expected = %f, actual = %f", tt.wantNumber, got.Number())
+			}
+
+			if tt.wantBool != got.Bool() {
+				t.Errorf("Bool() expected = %t, actual = %t", tt.wantBool, got.Bool())
+			}
+		})
+	}
+}
