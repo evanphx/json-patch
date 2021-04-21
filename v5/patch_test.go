@@ -91,6 +91,15 @@ func repeatedA(r int) string {
 
 var Cases = []Case{
 	{
+		``,
+		`[
+         { "op": "add", "path": "/baz", "value": "qux" }
+     ]`,
+		``,
+		false,
+		false,
+	},
+	{
 		`{ "foo": "bar"}`,
 		`[
 	       { "op": "add", "path": "/baz", "value": "qux" }
