@@ -53,6 +53,31 @@ func TestMergePatchNilDoc(t *testing.T) {
 	}
 }
 
+type arrayCases struct {
+	original, patch, res string
+}
+
+func TestMergePatchNilArray(t *testing.T) {
+
+	cases := []arrayCases {
+		{`{"a": [ {"b":"c"} ] }`, `{"a": [1]}`, `{"a": [1]}`},
+		{`{"a": [ {"b":"c"} ] }`, `{"a": [null, 1]}`, `{"a": [null, 1]}`},
+		{`["a",null]`, `[null]`, `[null]`},
+		{`["a"]`, `[null]`, `[null]`},
+		{`["a", "b"]`, `["a", null]`, `["a", null]`},
+		{`{"a":["b"]}`, `{"a": ["b", null]}`, `{"a":["b", null]}`},
+		{`{"a":[]}`, `{"a": ["b", null, null, "a"]}`, `{"a":["b", null, null, "a"]}`},
+	}
+
+	for _, c := range cases {
+		act := mergePatch(c.original, c.patch)
+
+		if !compareJSON(c.res, act) {
+			t.Errorf("null values not preserved in array")
+		}
+	}
+}
+
 func TestMergePatchRecursesIntoObjects(t *testing.T) {
 	doc := `{ "person": { "title": "hello", "age": 18 } }`
 	pat := `{ "person": { "title": "goodbye" } }`
