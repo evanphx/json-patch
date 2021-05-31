@@ -89,8 +89,8 @@ func pruneAryNulls(ary *partialArray) *partialArray {
 	for _, v := range *ary {
 		if v != nil {
 			pruneNulls(v)
-			newAry = append(newAry, v)
 		}
+		newAry = append(newAry, v)
 	}
 
 	*ary = newAry
