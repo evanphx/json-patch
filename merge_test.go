@@ -479,7 +479,7 @@ func createNestedMap(m map[string]interface{}, depth int, objectCount *int) {
 	if depth == 0 {
 		return
 	}
-	for i := 0; i< 2;i++ {
+	for i := 0; i < 2; i++ {
 		nested := map[string]interface{}{}
 		*objectCount += 1
 		createNestedMap(nested, depth-1, objectCount)
@@ -571,12 +571,12 @@ func benchmarkMatchesValueWithDeeplyNestedFields(depth int, b *testing.B) {
 func BenchmarkMatchesValue1(b *testing.B)  { benchmarkMatchesValueWithDeeplyNestedFields(1, b) }
 func BenchmarkMatchesValue2(b *testing.B)  { benchmarkMatchesValueWithDeeplyNestedFields(2, b) }
 func BenchmarkMatchesValue3(b *testing.B)  { benchmarkMatchesValueWithDeeplyNestedFields(3, b) }
-func BenchmarkMatchesValue4(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(4, b) }
-func BenchmarkMatchesValue5(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(5, b) }
-func BenchmarkMatchesValue6(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(6, b) }
-func BenchmarkMatchesValue7(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(7, b) }
-func BenchmarkMatchesValue8(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(8, b) }
-func BenchmarkMatchesValue9(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(9, b) }
+func BenchmarkMatchesValue4(b *testing.B)  { benchmarkMatchesValueWithDeeplyNestedFields(4, b) }
+func BenchmarkMatchesValue5(b *testing.B)  { benchmarkMatchesValueWithDeeplyNestedFields(5, b) }
+func BenchmarkMatchesValue6(b *testing.B)  { benchmarkMatchesValueWithDeeplyNestedFields(6, b) }
+func BenchmarkMatchesValue7(b *testing.B)  { benchmarkMatchesValueWithDeeplyNestedFields(7, b) }
+func BenchmarkMatchesValue8(b *testing.B)  { benchmarkMatchesValueWithDeeplyNestedFields(8, b) }
+func BenchmarkMatchesValue9(b *testing.B)  { benchmarkMatchesValueWithDeeplyNestedFields(9, b) }
 func BenchmarkMatchesValue10(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(10, b) }
 
 func TestCreateMergePatchComplexRemoveAll(t *testing.T) {
@@ -673,6 +673,12 @@ func TestMergeMergePatches(t *testing.T) {
 			p1:           `{"del1": null}`,
 			p2:           `{"del2": null}`,
 			exp:          `{"del1": null, "del2": null}`,
+		},
+		{
+			demonstrates: "nulls are kept in complex objects",
+			p1:           `{}`,
+			p2:           `{"request":{"object":{"complex_object_array":["value1","value2","value3"],"complex_object_map":{"key1":"value1","key2":"value2","key3":"value3"},"simple_object_bool":false,"simple_object_float":-5.5,"simple_object_int":5,"simple_object_null":null,"simple_object_string":"example"}}}`,
+			exp:          `{"request":{"object":{"complex_object_array":["value1","value2","value3"],"complex_object_map":{"key1":"value1","key2":"value2","key3":"value3"},"simple_object_bool":false,"simple_object_float":-5.5,"simple_object_int":5,"simple_object_null":null,"simple_object_string":"example"}}}`,
 		},
 		{
 			demonstrates: "a key added then deleted is kept deleted",
