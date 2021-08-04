@@ -24,6 +24,7 @@ var (
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
 	// "copy" operations in a patch.
 	AccumulatedCopySizeLimit int64 = 0
+	SeparatorLeftDash              = "/"
 	startObject                    = json.Delim('{')
 	endObject                      = json.Delim('}')
 	startArray                     = json.Delim('[')
@@ -85,6 +86,9 @@ type ApplyOptions struct {
 	// EnsurePathExistsOnAdd instructs json-patch to recursively create the missing parts of path on "add" operation.
 	// Default to false.
 	EnsurePathExistsOnAdd bool
+	// Separator defines the symbol of json-patch when separating
+	// Default to /.
+	Separator string
 }
 
 // NewApplyOptions creates a default set of options for calls to ApplyWithOptions.
@@ -94,6 +98,7 @@ func NewApplyOptions() *ApplyOptions {
 		AccumulatedCopySizeLimit: AccumulatedCopySizeLimit,
 		AllowMissingPathOnRemove: false,
 		EnsurePathExistsOnAdd:    false,
+		Separator:                SeparatorLeftDash,
 	}
 }
 
@@ -427,6 +432,19 @@ func (o Operation) Path() (string, error) {
 	return "unknown", errors.Wrapf(ErrMissing, "operation missing path field")
 }
 
+// Separator reads the "sep" field of the Operation.
+func (o Operation) Separator() string {
+	if obj, ok := o["sep"]; ok && obj != nil {
+		var op string
+
+		if err := json.Unmarshal(*obj, &op); err == nil {
+			return op
+		}
+	}
+
+	return SeparatorLeftDash
+}
+
 // From reads the "from" field of the Operation.
 func (o Operation) From() (string, error) {
 	if obj, ok := o["from"]; ok && obj != nil {
@@ -490,7 +508,7 @@ Loop:
 func findObject(pd *container, path string, options *ApplyOptions) (container, string) {
 	doc := *pd
 
-	split := strings.Split(path, "/")
+	split := strings.Split(path, options.Separator)
 
 	if len(split) < 2 {
 		return nil, ""
@@ -1048,6 +1066,8 @@ func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyO
 	var accumulatedCopySize int64
 
 	for _, op := range p {
+		sep := op.Separator()
+		options.Separator = sep
 		switch op.Kind() {
 		case "add":
 			err = p.add(&pd, op, options)
