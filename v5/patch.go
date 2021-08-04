@@ -751,7 +751,7 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 	var err error
 	var arrIndex int
 
-	split := strings.Split(path, "/")
+	split := strings.Split(path, options.Separator)
 
 	if len(split) < 2 {
 		return nil
