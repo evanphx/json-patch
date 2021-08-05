@@ -442,7 +442,7 @@ func (o Operation) Separator() string {
 		}
 	}
 
-	return SeparatorLeftDash
+	return ""
 }
 
 // From reads the "from" field of the Operation.
@@ -1066,8 +1066,10 @@ func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyO
 	var accumulatedCopySize int64
 
 	for _, op := range p {
-		sep := op.Separator()
-		options.Separator = sep
+		if sep := op.Separator(); sep != "" {
+			options.Separator = sep
+		}
+
 		switch op.Kind() {
 		case "add":
 			err = p.add(&pd, op, options)
