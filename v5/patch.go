@@ -766,9 +766,9 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 				}
 			}
 
-			// Check if the next part is a numeric index.
+			// Check if the next part is a numeric index or "-".
 			// If yes, then create an array, otherwise, create an object.
-			if arrIndex, err = strconv.Atoi(parts[pi+1]); err == nil {
+			if arrIndex, err = strconv.Atoi(parts[pi+1]); err == nil || parts[pi+1] == "-" {
 				if arrIndex < 0 {
 
 					if !options.SupportNegativeIndices {
