@@ -6,34 +6,42 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-// FileFlag is a flag for passing a path to a file on disk. The file is
-// expected to be a file, not a directory, that actually exists.
-type FileFlag string
+// FilesFlag is a flag for passing a path to one or more files on disk.
+// The files are expected to be files, not directories, that actually exist.
+type FilesFlag struct {
+	fs *[]string
+}
 
-// UnmarshalFlag implements go-flag's Unmarshaler interface
-func (f *FileFlag) UnmarshalFlag(value string) error {
-	stat, err := os.Stat(value)
-	if err != nil {
-		return err
+// Set implements pflag's Value interface.
+func (f FilesFlag) Set(value string) error {
+	for _, v := range strings.Split(value, ",") {
+		stat, err := os.Stat(v)
+		if err != nil {
+			return err
+		} else if stat.IsDir() {
+			return fmt.Errorf("path %q is a directory, not a file", v)
+		}
+
+		abs, err := filepath.Abs(value)
+		if err != nil {
+			return err
+		}
+
+		*f.fs = append(*f.fs, abs)
 	}
-
-	if stat.IsDir() {
-		return fmt.Errorf("path '%s' is a directory, not a file", value)
-	}
-
-	abs, err := filepath.Abs(value)
-	if err != nil {
-		return err
-	}
-
-	*f = FileFlag(abs)
 
 	return nil
 }
 
-// Path is the path to the file
-func (f FileFlag) Path() string {
-	return string(f)
+// String implements pflag's Value interface.
+func (f FilesFlag) String() string {
+	return strings.Join(*f.fs, ",")
+}
+
+// Type implements pflag's Value interface.
+func (f FilesFlag) Type() string {
+	return "files"
 }

@@ -2,55 +2,21 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"log"
 	"os"
 
-	jsonpatch "github.com/evanphx/json-patch"
-	flags "github.com/jessevdk/go-flags"
+	cobra "github.com/spf13/cobra"
 )
 
-type opts struct {
-	PatchFilePaths []FileFlag `long:"patch-file" short:"p" value-name:"PATH" description:"Path to file with one or more operations"`
+var rootCmd = &cobra.Command{
+	Use:   "json-patch",
+	Short: "A tool for RFC6902 and RFC7396 JSON manipulation.",
 }
 
 func main() {
-	var o opts
-	_, err := flags.Parse(&o)
-	if err != nil {
-		log.Fatalf("error: %s\n", err)
+	// TODO: Hide the completion command once we're able. This capability was only added recently: https://github.com/spf13/cobra/issues/1507
+	// rootCmd.CompletionOptions.HiddenDefaultCmd = true
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "%s", err)
+		os.Exit(1)
 	}
-
-	patches := make([]jsonpatch.Patch, len(o.PatchFilePaths))
-
-	for i, patchFilePath := range o.PatchFilePaths {
-		var bs []byte
-		bs, err = ioutil.ReadFile(patchFilePath.Path())
-		if err != nil {
-			log.Fatalf("error reading patch file: %s", err)
-		}
-
-		var patch jsonpatch.Patch
-		patch, err = jsonpatch.DecodePatch(bs)
-		if err != nil {
-			log.Fatalf("error decoding patch file: %s", err)
-		}
-
-		patches[i] = patch
-	}
-
-	doc, err := ioutil.ReadAll(os.Stdin)
-	if err != nil {
-		log.Fatalf("error reading from stdin: %s", err)
-	}
-
-	mdoc := doc
-	for _, patch := range patches {
-		mdoc, err = patch.Apply(mdoc)
-		if err != nil {
-			log.Fatalf("error applying patch: %s", err)
-		}
-	}
-
-	fmt.Printf("%s", mdoc)
 }
