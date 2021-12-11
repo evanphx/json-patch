@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -13,6 +15,7 @@ import (
 var (
 	patchFiles []string
 	patch      patcher = rfc6902{}
+	indent     string
 )
 
 type patcher interface {
@@ -72,20 +75,27 @@ The JSON document file can either be passed in as an argument, or piped through 
 				patches = append(patches, b)
 			}
 
-			var json []byte
+			var doc []byte
 			var err error
 			if len(args) == 0 {
-				json, err = ioutil.ReadAll(os.Stdin)
+				doc, err = ioutil.ReadAll(os.Stdin)
 			} else {
-				json, err = ioutil.ReadFile(args[0])
+				doc, err = ioutil.ReadFile(args[0])
 			}
 			if err != nil {
 				return err
 			}
 
-			res, err := patch.patch(json, patches)
+			res, err := patch.patch(doc, patches)
 			if err != nil {
 				return err
+			}
+			if indent != "" {
+				var b bytes.Buffer
+				if err := json.Indent(&b, res, "", indent); err != nil {
+					return err
+				}
+				res = b.Bytes()
 			}
 			fmt.Println(string(res))
 			return nil
@@ -93,6 +103,7 @@ The JSON document file can either be passed in as an argument, or piped through 
 	}
 	cmd.Flags().VarP(FilesFlag{&patchFiles}, "patch-file", "p", "Path to file with one or more operations")
 	cmd.Flags().VarP(patcherFlag{&patch}, "patch-format", "f", "The format of the patches. One of RFC6902 or RFC7396.")
+	cmd.Flags().StringVar(&indent, "indent", "", "What indent to use when formatting the result.")
 
 	rootCmd.AddCommand(cmd)
 }
