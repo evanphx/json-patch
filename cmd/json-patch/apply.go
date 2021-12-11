@@ -59,7 +59,7 @@ func (rfc7396) patch(json []byte, patches [][]byte) ([]byte, error) {
 
 func init() {
 	cmd := &cobra.Command{
-		Use:   "patch [flags] [JSON document]",
+		Use:   "apply [flags] [JSON document]",
 		Short: "Apply one or more JSON patches to a JSON document.",
 		Long: `Apply one or more JSON patches to a JSON document.
 

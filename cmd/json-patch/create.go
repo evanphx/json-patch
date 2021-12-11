@@ -10,9 +10,9 @@ import (
 
 func init() {
 	rootCmd.AddCommand(&cobra.Command{
-		Use:                   "diff <old JSON file> <new JSON file>",
+		Use:                   "create <old JSON file> <new JSON file>",
 		DisableFlagsInUseLine: true,
-		Short:                 "Calculate an RFC7396 merge patch for the difference between two JSON documents.",
+		Short:                 "Create an RFC7396 merge patch from the difference between two JSON documents.",
 		Args:                  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			orig, err := ioutil.ReadFile(args[0])
