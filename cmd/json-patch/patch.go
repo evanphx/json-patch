@@ -63,15 +63,6 @@ func init() {
 The JSON document file can either be passed in as an argument, or piped through stdin.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			for _, p := range patchFiles {
-				stat, err := os.Stat(p)
-				if err != nil {
-					return err
-				} else if stat.IsDir() {
-					return fmt.Errorf("path %q is a directory, not a file", p)
-				}
-			}
-
 			var patches [][]byte
 			for _, p := range patchFiles {
 				b, err := ioutil.ReadFile(p)
