@@ -260,11 +260,63 @@ combined merge patch: {"age":4.23,"eyes":"blue","height":null,"name":"Jane"}
 ```
 
 # CLI for comparing JSON documents
-You can install the commandline program `json-patch`.
+The `json-patch` program allows you to create RFC7396 patches as well as apply
+ RFC7396 or RFC6902 patches.
 
-This program can take multiple JSON patch documents as arguments, 
-and fed a JSON document from `stdin`. It will apply the patch(es) against 
-the document and output the modified doc.
+Execute the following to install the program:
+```sh
+$ go install github.com/evanphx/json-patch/cmd/json-patch
+$ json-patch help
+```
+
+## create
+The `create` subcommand allows you to create RFC7396 patches. It takes two
+arguments: The old JSON document and the new JSON document.
+
+**first.json**:
+```json
+{
+    "name": "John",
+    "age": 24,
+    "height": 3.21
+}
+```
+
+**second.json**:
+```json
+{
+    "name": "Jane",
+    "age": 24
+}
+```
+
+**third.json**:
+```json
+{
+    "name": "Jane",
+    "address": "123 Main St",
+    "age": 21
+}
+```
+
+```sh
+$ json-patch create first.json second.json
+{"height":null,"name":"Jane"}
+```
+
+```sh
+$ json-patch create second.json third.json
+{"address":"123 Main St","age":21}
+```
+
+## apply
+The `apply` subcommand allows you to apply either an RFC6902 or RFC7396 patch to
+a JSON document. The patches are accepted as flags, and the JSON document is
+accepted either from `stdin` or as a single argument to the file.
+
+Selecting RFC6902 or RFC7396 is controlled via the `--patch-format`/`-f` flag.
+
+### RFC6902
 
 **patch.1.json**
 ```json
@@ -291,12 +343,40 @@ the document and output the modified doc.
 }
 ```
 
-You can then run:
-
 ```bash
-$ go install github.com/evanphx/json-patch/cmd/json-patch
-$ cat document.json | json-patch -p patch.1.json -p patch.2.json
-{"address":"123 Main St","age":"21","name":"Jane"}
+$ cat document.json | json-patch apply -f RFC6902 -p patch.1.json -p patch.2.json
+{"name":"Jane","age": 21,"height": 3.21}
+```
+
+### RFC7396
+
+**patch.1.json**
+```json
+{"height":null,"name":"Jane"}
+```
+
+**patch.2.json**
+```json
+{"address":"123 Main St","age":21}
+```
+
+**document.json**
+```json
+{
+    "name": "John",
+    "age": 24,
+    "height": 3.21
+}
+```
+
+Note, RFC7396 is the default for `-f`:
+```bash
+$ json-patch apply -p patch.1.json -p patch.2.json document.json --indent "  "
+{
+  "name": "Jane",
+  "age": "21",
+  "address": "123 Main St"
+}
 ```
 
 # Help It!
