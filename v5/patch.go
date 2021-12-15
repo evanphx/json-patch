@@ -180,7 +180,7 @@ func (n *partialDoc) UnmarshalJSON(data []byte) error {
 	if t, err := d.Token(); err != nil {
 		return err
 	} else if t != startObject {
-		return &syntaxError{fmt.Sprintf("unexpected JSON token in document node: %s", t)}
+		return &syntaxError{fmt.Sprintf("unexpected JSON token in document node: %v", t)}
 	}
 	for d.More() {
 		k, err := d.Token()
