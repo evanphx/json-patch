@@ -7,4 +7,4 @@ require (
 	github.com/spf13/cobra v1.2.1
 )
 
-replace github.com/evanphx/json-patch => ../../.
+replace github.com/evanphx/json-patch => ../../v5
