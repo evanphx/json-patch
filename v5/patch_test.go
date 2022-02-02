@@ -571,6 +571,13 @@ var Cases = []Case{
 }`,
 		false, true,
 	},
+	{
+		`{"baz": []}`,
+		`[ { "op": "test", "path": "/foo" } ]`,
+		`{"baz": []}`,
+		false,
+		false,
+	},
 }
 
 type BadCase struct {
