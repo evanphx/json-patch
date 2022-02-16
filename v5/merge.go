@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 )
 
 func merge(cur, patch *lazyNode, mergeMerge bool) *lazyNode {
@@ -100,9 +101,12 @@ func pruneAryNulls(ary *partialArray) *partialArray {
 	return ary
 }
 
-var errBadJSONDoc = fmt.Errorf("Invalid JSON Document")
-var errBadJSONPatch = fmt.Errorf("Invalid JSON Patch")
-var errBadMergeTypes = fmt.Errorf("Mismatched JSON Documents")
+var (
+	errBadJSONDoc    = fmt.Errorf("Invalid JSON Document")
+	errBadJSONPatch  = fmt.Errorf("Invalid JSON Patch")
+	errBadMergeTypes = fmt.Errorf("Mismatched JSON Documents")
+	null             = []byte("null")
+)
 
 // MergeMergePatches merges two merge patches together, such that
 // applying this resulting merged merge patch to a document yields the same
@@ -117,6 +121,10 @@ func MergePatch(docData, patchData []byte) ([]byte, error) {
 }
 
 func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
+	if bytes.Equal(patchData, null) {
+		return null, nil
+	}
+
 	doc := &partialDoc{}
 
 	docErr := json.Unmarshal(docData, doc)
@@ -154,6 +162,12 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 			patchErr = json.Unmarshal(patchData, patchAry)
 
 			if patchErr != nil {
+				// Per spec if patch is a string is should override the docData
+				isStr, err := regexp.Match(`".*"`, patchData)
+				if isStr && err == nil {
+					return patchData, nil
+				}
+
 				return nil, errBadJSONPatch
 			}
 
