@@ -221,6 +221,24 @@ func CreateMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 	return nil, errBadMergeTypes
 }
 
+// CreateAnyMergePatch will return a merge patch document capable of converting
+// the original document(s) to the modified document(s).
+// It marshals the input objects to JSON, and then calsl CreateMergePatch.
+// The merge patch returned follows the specification defined at http://tools.ietf.org/html/draft-ietf-appsawg-json-merge-patch-07
+func CreateAnyMergePatch(original, modified interface{}) ([]byte, error) {
+	originalJSON, err := json.Marshal(original)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal original object: %w", err)
+	}
+
+	modifiedJSON, err := json.Marshal(modified)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal modified object: %w", err)
+	}
+
+	return CreateMergePatch(originalJSON, modifiedJSON)
+}
+
 // createObjectMergePatch will return a merge-patch document capable of
 // converting the original document to the modified document.
 func createObjectMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {

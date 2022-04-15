@@ -643,6 +643,23 @@ func TestCreateMergePatchReplaceKeyNotEscape(t *testing.T) {
 	}
 }
 
+func TestCreateAnyMergePatch(t *testing.T) {
+	original := map[string]interface{}{"title": "hello", "nested": map[string]int{"one": 1, "two": 2}}
+	modified := map[string]interface{}{"title": "goodbye", "nested": map[string]int{"one": 2, "two": 2}}
+
+	exp := `{ "title": "goodbye", "nested": {"one": 2}  }`
+
+	res, err := CreateAnyMergePatch(original, modified)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s, %s", err, string(res))
+	}
+
+	if !compareJSON(exp, string(res)) {
+		t.Fatalf("Key was not replaced")
+	}
+}
+
 func TestMergePatchReplaceKeyNotEscaping(t *testing.T) {
 	doc := `{ "obj": { "title/escaped": "hello" } }`
 	pat := `{ "obj": { "title/escaped": "goodbye" } }`
