@@ -16,6 +16,14 @@ const (
 	eAry
 )
 
+type JSONType = uint8
+
+const (
+	JSONObject JSONType = 1
+	JSONArray  JSONType = 2
+	JSONValue  JSONType = 3
+)
+
 var (
 	// SupportNegativeIndices decides whether to support non-standard practice of
 	// allowing negative indices to mean indices starting at the end of an array.
@@ -695,6 +703,18 @@ func (d *partialArray) remove(key string, options *ApplyOptions) error {
 
 	*d = ary
 	return nil
+}
+
+func (p *Patch) AddOperation(operation Operation) {
+	*p = append(*p, operation)
+}
+
+func (p *Patch) String() string {
+	if text, err := json.Marshal(p); err != nil {
+		return err.Error()
+	} else {
+		return string(text)
+	}
 }
 
 func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {

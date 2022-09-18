@@ -241,10 +241,10 @@ func TestResembleJSONArray(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		result := resemblesJSONArray(test.input)
-		if result != test.expected {
+		result := testJsonType(test.input)
+		if (result == JSONArray) != test.expected {
 			t.Errorf(
-				`expected "%t" but received "%t" for case: "%s"`,
+				`expected "%t" but received "%d" for case: "%s"`,
 				test.expected,
 				result,
 				string(test.input),

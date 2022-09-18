@@ -184,18 +184,21 @@ func isSyntaxError(err error) bool {
 	return false
 }
 
-// resemblesJSONArray indicates whether the byte-slice "appears" to be
+// testJsonType indicates whether the byte-slice "appears" to be
 // a JSON array or not.
 // False-positives are possible, as this function does not check the internal
 // structure of the array. It only checks that the outer syntax is present and
 // correct.
-func resemblesJSONArray(input []byte) bool {
+func testJsonType(input []byte) JSONType {
 	input = bytes.TrimSpace(input)
 
-	hasPrefix := bytes.HasPrefix(input, []byte("["))
-	hasSuffix := bytes.HasSuffix(input, []byte("]"))
-
-	return hasPrefix && hasSuffix
+	if bytes.HasPrefix(input, []byte("[")) && bytes.HasSuffix(input, []byte("]")) {
+		return JSONArray
+	}
+	if bytes.HasPrefix(input, []byte("{")) && bytes.HasSuffix(input, []byte("}")) {
+		return JSONObject
+	}
+	return JSONValue
 }
 
 // CreateMergePatch will return a merge patch document capable of converting
@@ -204,16 +207,16 @@ func resemblesJSONArray(input []byte) bool {
 // JSON documents.
 // The merge patch returned follows the specification defined at http://tools.ietf.org/html/draft-ietf-appsawg-json-merge-patch-07
 func CreateMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
-	originalResemblesArray := resemblesJSONArray(originalJSON)
-	modifiedResemblesArray := resemblesJSONArray(modifiedJSON)
+	originalType := testJsonType(originalJSON)
+	modifiedType := testJsonType(modifiedJSON)
 
 	// Do both byte-slices seem like JSON arrays?
-	if originalResemblesArray && modifiedResemblesArray {
+	if originalType == JSONArray && modifiedType == JSONArray {
 		return createArrayMergePatch(originalJSON, modifiedJSON)
 	}
 
 	// Are both byte-slices are not arrays? Then they are likely JSON objects...
-	if !originalResemblesArray && !modifiedResemblesArray {
+	if originalType == JSONObject && modifiedType == JSONObject {
 		return createObjectMergePatch(originalJSON, modifiedJSON)
 	}
 
