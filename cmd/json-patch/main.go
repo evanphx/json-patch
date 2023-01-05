@@ -12,6 +12,7 @@ import (
 
 type opts struct {
 	PatchFilePaths []FileFlag `long:"patch-file" short:"p" value-name:"PATH" description:"Path to file with one or more operations"`
+	Merge          bool       `long:"merge" short:"m" description:"Treat patches as RFC 7396 ones"`
 }
 
 func main() {
@@ -22,6 +23,7 @@ func main() {
 	}
 
 	patches := make([]jsonpatch.Patch, len(o.PatchFilePaths))
+	patchDatas := make([][]byte, len(patches))
 
 	for i, patchFilePath := range o.PatchFilePaths {
 		var bs []byte
@@ -30,13 +32,16 @@ func main() {
 			log.Fatalf("error reading patch file: %s", err)
 		}
 
-		var patch jsonpatch.Patch
-		patch, err = jsonpatch.DecodePatch(bs)
-		if err != nil {
-			log.Fatalf("error decoding patch file: %s", err)
-		}
+		if !o.Merge {
+			var patch jsonpatch.Patch
+			patch, err = jsonpatch.DecodePatch(bs)
+			if err != nil {
+				log.Fatalf("error decoding patch file: %s", err)
+			}
 
-		patches[i] = patch
+			patches[i] = patch
+		}
+		patchDatas[i] = bs
 	}
 
 	doc, err := ioutil.ReadAll(os.Stdin)
@@ -45,8 +50,12 @@ func main() {
 	}
 
 	mdoc := doc
-	for _, patch := range patches {
-		mdoc, err = patch.Apply(mdoc)
+	for i, patchData := range patchDatas {
+		if o.Merge {
+			mdoc, err = jsonpatch.MergePatch(mdoc, patchData)
+		} else {
+			mdoc, err = patches[i].Apply(mdoc)
+		}
 		if err != nil {
 			log.Fatalf("error applying patch: %s", err)
 		}
