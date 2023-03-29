@@ -359,7 +359,7 @@ func findObject(pd *container, path string) (container, string) {
 
 		next, ok := doc.get(decodePatchKey(part))
 
-		if next == nil || ok != nil {
+		if next == nil || ok != nil || next.raw == nil {
 			return nil, ""
 		}
 
