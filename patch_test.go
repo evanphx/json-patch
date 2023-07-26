@@ -98,6 +98,11 @@ var Cases = []Case{
 		`{ "foo": [ "bar", "baz" ] }`,
 	},
 	{
+		`{ "foo": [ "bar", "qux", "baz" ] }`,
+		`[ { "op": "remove", "path": "/foo/1" },{ "op": "remove", "path": "/foo/2" } ]`,
+		`{ "foo": [ "bar" ] }`,
+	},
+	{
 		`{ "baz": "qux", "foo": "bar" }`,
 		`[ { "op": "replace", "path": "/baz", "value": "boo" } ]`,
 		`{ "baz": "boo", "foo": "bar" }`,
@@ -685,4 +690,18 @@ func TestEquality(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRemoveApply(t *testing.T) {
+	patch := `[ { "op": "remove", "path": "/foo/1" },{ "op": "remove", "path": "/foo/2" } ]`
+	doc := `{ "foo": [ "bar", "qux", "baz" ] }`
+	patchObj, err := DecodePatch([]byte(patch))
+	if err != nil {
+		t.Errorf("unexpected error: %+v", err)
+	}
+	patchedJS, err := patchObj.Apply([]byte(doc))
+	if err != nil {
+		t.Errorf("patchObj.Apply internal error occurred, %v", err)
+	}
+	t.Logf("patchedJS: %s", patchedJS)
 }
