@@ -1085,7 +1085,21 @@ func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyO
 		return nil, err
 	}
 
-	err = nil
+	// Here we need to reverse the order of the remove Operation to start removing from the high position.
+	for i, j := 0, len(p)-1; i <= j; {
+		if p[i].Kind() == "remove" && p[j].Kind() == "remove" {
+			p[i], p[j] = p[j], p[i]
+			i++
+			j--
+		} else {
+			if p[i].Kind() != "remove" {
+				i++
+			}
+			if p[j].Kind() != "remove" {
+				j--
+			}
+		}
+	}
 
 	var accumulatedCopySize int64
 
