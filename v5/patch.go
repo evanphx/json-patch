@@ -454,7 +454,11 @@ func (o Operation) value() *lazyNode {
 
 // ValueInterface decodes the operation value into an interface.
 func (o Operation) ValueInterface() (interface{}, error) {
-	if obj, ok := o["value"]; ok && obj != nil {
+	if obj, ok := o["value"]; ok {
+		if obj == nil {
+			return nil, nil
+		}
+
 		var v interface{}
 
 		err := json.Unmarshal(*obj, &v)
@@ -816,6 +820,43 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 	return nil
 }
 
+func validateOperation(op Operation) error {
+	switch op.Kind() {
+	case "add", "replace":
+		if _, err := op.ValueInterface(); err != nil {
+			return errors.Wrapf(err, "failed to decode 'value'")
+		}
+	case "move", "copy":
+		if _, err := op.From(); err != nil {
+			return errors.Wrapf(err, "failed to decode 'from'")
+		}
+	case "remove", "test":
+	default:
+		return fmt.Errorf("unsupported operation")
+	}
+
+	if _, err := op.Path(); err != nil {
+		return errors.Wrapf(err, "failed to decode 'path'")
+	}
+
+	return nil
+}
+
+func validatePatch(p Patch) error {
+	for _, op := range p {
+		if err := validateOperation(op); err != nil {
+			opData, infoErr := json.Marshal(op)
+			if infoErr != nil {
+				return errors.Wrapf(err, "invalid operation")
+			}
+
+			return errors.Wrapf(err, "invalid operation %s", opData)
+		}
+	}
+
+	return nil
+}
+
 func (p Patch) remove(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
@@ -1041,6 +1082,10 @@ func DecodePatch(buf []byte) (Patch, error) {
 	err := json.Unmarshal(buf, &p)
 
 	if err != nil {
+		return nil, err
+	}
+
+	if err := validatePatch(p); err != nil {
 		return nil, err
 	}
 
