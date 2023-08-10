@@ -17,7 +17,7 @@ jobs:
         path: go/src/github.com/evanphx/json-patch
 
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: 1.18
 
