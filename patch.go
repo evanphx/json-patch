@@ -688,7 +688,7 @@ func (p Patch) test(doc *container, op Operation) error {
 	}
 
 	if val == nil {
-		if op.value().raw == nil {
+		if op.value() == nil || op.value().raw == nil {
 			return nil
 		}
 		return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
