@@ -31,7 +31,7 @@ func applyPatch(doc, patch string) (string, error) {
 	obj, err := DecodePatch([]byte(patch))
 
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
 	out, err := obj.Apply([]byte(doc))
@@ -47,7 +47,7 @@ func applyPatchIndented(doc, patch string) (string, error) {
 	obj, err := DecodePatch([]byte(patch))
 
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
 	out, err := obj.ApplyIndent([]byte(doc), "  ")
@@ -63,7 +63,7 @@ func applyPatchWithOptions(doc, patch string, options *ApplyOptions) (string, er
 	obj, err := DecodePatch([]byte(patch))
 
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
 	out, err := obj.ApplyWithOptions([]byte(doc), options)
@@ -574,17 +574,26 @@ var Cases = []Case{
 }
 
 type BadCase struct {
-	doc, patch string
+	doc, patch   string
+	failOnDecode bool
 }
 
 var MutationTestCases = []BadCase{
 	{
 		`{ "foo": "bar", "qux": { "baz": 1, "bar": null } }`,
 		`[ { "op": "remove", "path": "/qux/bar" } ]`,
+		false,
 	},
 	{
 		`{ "foo": "bar", "qux": { "baz": 1, "bar": null } }`,
 		`[ { "op": "replace", "path": "/qux/baz", "value": null } ]`,
+		true,
+	},
+	// malformed value
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "add", "path": "/", "value": "{qux" } ]`,
+		true,
 	},
 }
 
@@ -592,79 +601,98 @@ var BadCases = []BadCase{
 	{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "path": "/baz/bat", "value": "qux" } ]`,
+		false,
 	},
 	{
 		`{ "a": { "b": { "d": 1 } } }`,
 		`[ { "op": "remove", "path": "/a/b/c" } ]`,
+		false,
 	},
 	{
 		`{ "a": { "b": { "d": 1 } } }`,
 		`[ { "op": "move", "from": "/a/b/c", "path": "/a/b/e" } ]`,
+		false,
 	},
 	{
 		`{ "a": { "b": [1] } }`,
 		`[ { "op": "remove", "path": "/a/b/1" } ]`,
+		false,
 	},
 	{
 		`{ "a": { "b": [1] } }`,
 		`[ { "op": "move", "from": "/a/b/1", "path": "/a/b/2" } ]`,
+		false,
 	},
 	{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "pathz": "/baz", "value": "qux" } ]`,
+		true,
 	},
 	{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "path": "", "value": "qux" } ]`,
+		false,
 	},
 	{
 		`{ "foo": ["bar","baz"]}`,
 		`[ { "op": "replace", "path": "/foo/2", "value": "bum"}]`,
+		false,
 	},
 	{
 		`{ "foo": ["bar","baz"]}`,
 		`[ { "op": "add", "path": "/foo/-4", "value": "bum"}]`,
+		false,
 	},
 	{
 		`{ "name":{ "foo": "bat", "qux": "bum"}}`,
 		`[ { "op": "replace", "path": "/foo/bar", "value":"baz"}]`,
+		false,
 	},
 	{
 		`{ "foo": ["bar"]}`,
 		`[ {"op": "add", "path": "/foo/2", "value": "bum"}]`,
+		false,
 	},
 	{
 		`{ "foo": []}`,
 		`[ {"op": "remove", "path": "/foo/-"}]`,
+		false,
 	},
 	{
 		`{ "foo": []}`,
 		`[ {"op": "remove", "path": "/foo/-1"}]`,
+		false,
 	},
 	{
 		`{ "foo": ["bar"]}`,
 		`[ {"op": "remove", "path": "/foo/-2"}]`,
+		false,
 	},
 	{
 		`{}`,
 		`[ {"op":null,"path":""} ]`,
+		true,
 	},
 	{
 		`{}`,
 		`[ {"op":"add","path":null} ]`,
+		true,
 	},
 	{
 		`{}`,
 		`[ { "op": "copy", "from": null }]`,
+		true,
 	},
 	{
 		`{ "foo": ["bar"]}`,
 		`[{"op": "copy", "path": "/foo/6666666666", "from": "/"}]`,
+		false,
 	},
 	// Can't copy into an index greater than the size of the array
 	{
 		`{ "foo": ["bar"]}`,
 		`[{"op": "copy", "path": "/foo/2", "from": "/foo/0"}]`,
+		false,
 	},
 	// Accumulated copy size cannot exceed AccumulatedCopySizeLimit.
 	{
@@ -673,20 +701,24 @@ var BadCases = []BadCase{
 		// size, so each copy operation increases the size by 51 bytes.
 		`[ { "op": "copy", "path": "/foo/-", "from": "/foo/1" },
 		   { "op": "copy", "path": "/foo/-", "from": "/foo/1" }]`,
+		false,
 	},
 	// Can't move into an index greater than or equal to the size of the array
 	{
 		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
 		`[ { "op": "move", "from": "/foo/1", "path": "/foo/4" } ]`,
+		false,
 	},
 	{
 		`{ "baz": "qux" }`,
 		`[ { "op": "replace", "path": "/foo", "value": "bar" } ]`,
+		false,
 	},
 	// Can't copy from non-existent "from" key.
 	{
 		`{ "foo": "bar"}`,
 		`[{"op": "copy", "path": "/qux", "from": "/baz"}]`,
+		false,
 	},
 }
 
@@ -753,10 +785,22 @@ func TestAllCases(t *testing.T) {
 	}
 
 	for _, c := range BadCases {
-		_, err := applyPatch(c.doc, c.patch)
+		p, err := DecodePatch([]byte(c.patch))
+		if err == nil && c.failOnDecode {
+			t.Errorf("Patch %q should have failed decode but did not", c.patch)
+		}
 
-		if err == nil {
-			t.Errorf("Patch %q should have failed to apply but it did not", c.patch)
+		if err != nil && !c.failOnDecode {
+			t.Errorf("Patch %q should have passed decode but failed with %v", c.patch, err)
+		}
+
+		if err == nil && !c.failOnDecode {
+			_, err = p.Apply([]byte(c.doc))
+
+			if err == nil {
+				t.Errorf("Patch %q should have failed to apply but it did not", c.patch)
+			}
+
 		}
 	}
 }
