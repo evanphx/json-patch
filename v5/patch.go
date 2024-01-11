@@ -334,7 +334,27 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 				return false
 			}
 
-			return bytes.Equal(n.compact(), o.compact())
+			nc := n.compact()
+			oc := o.compact()
+
+			if nc[0] == '"' && oc[0] == '"' {
+				// ok, 2 strings
+
+				var ns, os string
+
+				err := json.Unmarshal(nc, &ns)
+				if err != nil {
+					return false
+				}
+				err = json.Unmarshal(oc, &os)
+				if err != nil {
+					return false
+				}
+
+				return ns == os
+			}
+
+			return bytes.Equal(nc, oc)
 		}
 	}
 

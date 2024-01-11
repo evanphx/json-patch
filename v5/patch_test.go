@@ -1078,6 +1078,12 @@ var EqualityCases = []EqualityCase{
 		`null`,
 		false,
 	},
+	{
+		"Unicode",
+		`{"name": "λJohn"}`,
+		`{"name": "\u03BBJohn"}`,
+		true,
+	},
 }
 
 func TestEquality(t *testing.T) {
