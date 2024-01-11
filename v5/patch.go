@@ -773,6 +773,32 @@ func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {
 		return errors.Wrapf(ErrMissing, "add operation failed to decode path")
 	}
 
+	// special case, adding to empty means replacing the container with the value given
+	if path == "" {
+		val := op.value()
+
+		var pd container
+		if (*val.raw)[0] == '[' {
+			pd = &partialArray{
+				self: val,
+			}
+		} else {
+			pd = &partialDoc{
+				self: val,
+			}
+		}
+
+		err := json.Unmarshal(*val.raw, pd)
+
+		if err != nil {
+			return err
+		}
+
+		*doc = pd
+
+		return nil
+	}
+
 	if options.EnsurePathExistsOnAdd {
 		err = ensurePathExists(doc, path, options)
 
