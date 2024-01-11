@@ -119,11 +119,11 @@ func MergePatch(docData, patchData []byte) ([]byte, error) {
 func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	doc := &partialDoc{}
 
-	docErr := json.Unmarshal(docData, doc)
+	docErr := unmarshal(docData, doc)
 
 	patch := &partialDoc{}
 
-	patchErr := json.Unmarshal(patchData, patch)
+	patchErr := unmarshal(patchData, patch)
 
 	if isSyntaxError(docErr) {
 		return nil, errBadJSONDoc
@@ -151,7 +151,7 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 			}
 		} else {
 			patchAry := &partialArray{}
-			patchErr = json.Unmarshal(patchData, patchAry)
+			patchErr = unmarshal(patchData, patchAry)
 
 			if patchErr != nil {
 				return nil, errBadJSONPatch
@@ -227,12 +227,12 @@ func createObjectMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 	originalDoc := map[string]interface{}{}
 	modifiedDoc := map[string]interface{}{}
 
-	err := json.Unmarshal(originalJSON, &originalDoc)
+	err := unmarshal(originalJSON, &originalDoc)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
 
-	err = json.Unmarshal(modifiedJSON, &modifiedDoc)
+	err = unmarshal(modifiedJSON, &modifiedDoc)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
@@ -245,6 +245,12 @@ func createObjectMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 	return json.Marshal(dest)
 }
 
+func unmarshal(data []byte, into interface{}) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	return dec.Decode(into)
+}
+
 // createArrayMergePatch will return an array of merge-patch documents capable
 // of converting the original document to the modified document for each
 // pair of JSON documents provided in the arrays.
@@ -253,12 +259,12 @@ func createArrayMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 	originalDocs := []json.RawMessage{}
 	modifiedDocs := []json.RawMessage{}
 
-	err := json.Unmarshal(originalJSON, &originalDocs)
+	err := unmarshal(originalJSON, &originalDocs)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
 
-	err = json.Unmarshal(modifiedJSON, &modifiedDocs)
+	err = unmarshal(modifiedJSON, &modifiedDocs)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
@@ -311,6 +317,11 @@ func matchesValue(av, bv interface{}) bool {
 	switch at := av.(type) {
 	case string:
 		bt := bv.(string)
+		if bt == at {
+			return true
+		}
+	case json.Number:
+		bt := bv.(json.Number)
 		if bt == at {
 			return true
 		}
@@ -377,7 +388,7 @@ func getDiff(a, b map[string]interface{}) (map[string]interface{}, error) {
 			if len(dst) > 0 {
 				into[key] = dst
 			}
-		case string, float64, bool:
+		case string, float64, bool, json.Number:
 			if !matchesValue(av, bv) {
 				into[key] = bv
 			}
