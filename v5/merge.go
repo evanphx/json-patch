@@ -88,14 +88,14 @@ func pruneDocNulls(doc *partialDoc) *partialDoc {
 func pruneAryNulls(ary *partialArray) *partialArray {
 	newAry := []*lazyNode{}
 
-	for _, v := range *ary {
+	for _, v := range ary.nodes {
 		if v != nil {
 			pruneNulls(v)
 		}
 		newAry = append(newAry, v)
 	}
 
-	*ary = newAry
+	ary.nodes = newAry
 
 	return ary
 }
@@ -155,7 +155,7 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 			}
 		} else {
 			patchAry := &partialArray{}
-			patchErr = unmarshal(patchData, patchAry)
+			patchErr = unmarshal(patchData, &patchAry.nodes)
 
 			if patchErr != nil {
 				// Not an array either, a literal is the result directly.
@@ -167,7 +167,7 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 
 			pruneAryNulls(patchAry)
 
-			out, patchErr := json.Marshal(patchAry)
+			out, patchErr := json.Marshal(patchAry.nodes)
 
 			if patchErr != nil {
 				return nil, errBadJSONPatch
