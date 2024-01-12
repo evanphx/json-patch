@@ -2,11 +2,12 @@ package jsonpatch
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"reflect"
+
+	"github.com/evanphx/json-patch/v5/internal/json"
 )
 
 func merge(cur, patch *lazyNode, mergeMerge bool) *lazyNode {
@@ -123,7 +124,9 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 
 	docErr := unmarshal(docData, doc)
 
-	patch := &partialDoc{}
+	patch := &partialDoc{
+		fastKeys: true,
+	}
 
 	patchErr := unmarshal(patchData, patch)
 
@@ -144,6 +147,9 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	}
 
 	if patchErr == nil && patch.obj == nil {
+		if json.Valid(patchData) {
+			return patchData, nil
+		}
 		return nil, errBadJSONPatch
 	}
 
@@ -262,9 +268,7 @@ func createObjectMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 }
 
 func unmarshal(data []byte, into interface{}) error {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.UseNumber()
-	return dec.Decode(into)
+	return json.Unmarshal(data, into)
 }
 
 // createArrayMergePatch will return an array of merge-patch documents capable

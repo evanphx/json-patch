@@ -5,11 +5,12 @@ import (
 	"testing"
 )
 
-func mergePatch(doc, patch string) string {
+func mergePatch(t *testing.T, doc, patch string) string {
+	t.Helper()
 	out, err := MergePatch([]byte(doc), []byte(patch))
 
 	if err != nil {
-		panic(fmt.Sprintf("%s: %s", err, patch))
+		t.Errorf(fmt.Sprintf("%s: %s", err, patch))
 	}
 
 	return string(out)
@@ -19,7 +20,7 @@ func TestMergePatchReplaceKey(t *testing.T) {
 	doc := `{ "title": "hello" }`
 	pat := `{ "title": "goodbye" }`
 
-	res := mergePatch(doc, pat)
+	res := mergePatch(t, doc, pat)
 
 	if !compareJSON(pat, res) {
 		t.Fatalf("Key was not replaced")
@@ -30,7 +31,7 @@ func TestMergePatchIgnoresOtherValues(t *testing.T) {
 	doc := `{ "title": "hello", "age": 18 }`
 	pat := `{ "title": "goodbye" }`
 
-	res := mergePatch(doc, pat)
+	res := mergePatch(t, doc, pat)
 
 	exp := `{ "title": "goodbye", "age": 18 }`
 
@@ -43,7 +44,7 @@ func TestMergePatchNilDoc(t *testing.T) {
 	doc := `{ "title": null }`
 	pat := `{ "title": {"foo": "bar"} }`
 
-	res := mergePatch(doc, pat)
+	res := mergePatch(t, doc, pat)
 
 	exp := `{ "title": {"foo": "bar"} }`
 
@@ -70,7 +71,7 @@ func TestMergePatchNilArray(t *testing.T) {
 
 	for _, c := range cases {
 		t.Log(c.original)
-		act := mergePatch(c.original, c.patch)
+		act := mergePatch(t, c.original, c.patch)
 
 		if !compareJSON(c.res, act) {
 			t.Errorf("null values not preserved in array")
@@ -82,7 +83,7 @@ func TestMergePatchRecursesIntoObjects(t *testing.T) {
 	doc := `{ "person": { "title": "hello", "age": 18 } }`
 	pat := `{ "person": { "title": "goodbye" } }`
 
-	res := mergePatch(doc, pat)
+	res := mergePatch(t, doc, pat)
 
 	exp := `{ "person": { "title": "goodbye", "age": 18 } }`
 
@@ -111,7 +112,7 @@ func TestMergePatchReplacesNonObjectsWholesale(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		act := mergePatch(c.doc, c.pat)
+		act := mergePatch(t, c.doc, c.pat)
 
 		if !compareJSON(c.res, act) {
 			t.Errorf("whole object replacement failed")
@@ -175,7 +176,7 @@ var rfcTests = []struct {
 
 func TestMergePatchRFCCases(t *testing.T) {
 	for i, c := range rfcTests {
-		out := mergePatch(c.target, c.patch)
+		out := mergePatch(t, c.target, c.patch)
 
 		if !compareJSON(out, c.expected) {
 			t.Errorf("case[%d], patch '%s' did not apply properly to '%s'. expected:\n'%s'\ngot:\n'%s'", i, c.patch, c.target, c.expected, out)
@@ -621,7 +622,7 @@ func TestMergePatchReplaceKeyNotEscaping(t *testing.T) {
 	pat := `{ "obj": { "title/escaped": "goodbye" } }`
 	exp := `{ "obj": { "title/escaped": "goodbye" } }`
 
-	res := mergePatch(doc, pat)
+	res := mergePatch(t, doc, pat)
 
 	if !compareJSON(exp, res) {
 		t.Fatalf("Key was not replaced")

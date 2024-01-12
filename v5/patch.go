@@ -2,11 +2,11 @@ package jsonpatch
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/evanphx/json-patch/v5/internal/json"
 	"github.com/pkg/errors"
 )
 
@@ -59,6 +59,8 @@ type partialDoc struct {
 	self *lazyNode
 	keys []string
 	obj  map[string]*lazyNode
+
+	fastKeys bool
 }
 
 type partialArray struct {
@@ -133,7 +135,7 @@ func (n *lazyNode) UnmarshalJSON(data []byte) error {
 }
 
 func (n *partialDoc) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
+	var buf strings.Builder
 	if _, err := buf.WriteString("{"); err != nil {
 		return nil, err
 	}
@@ -164,7 +166,7 @@ func (n *partialDoc) MarshalJSON() ([]byte, error) {
 	if _, err := buf.WriteString("}"); err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+	return []byte(buf.String()), nil
 }
 
 type syntaxError struct {
@@ -176,30 +178,13 @@ func (err *syntaxError) Error() string {
 }
 
 func (n *partialDoc) UnmarshalJSON(data []byte) error {
-	if err := unmarshal(data, &n.obj); err != nil {
+	keys, err := json.UnmarshalWithKeys(data, &n.obj)
+	if err != nil {
 		return err
 	}
-	buffer := bytes.NewBuffer(data)
-	d := json.NewDecoder(buffer)
-	if t, err := d.Token(); err != nil {
-		return err
-	} else if t != startObject {
-		return &syntaxError{fmt.Sprintf("unexpected JSON token in document node: %v", t)}
-	}
-	for d.More() {
-		k, err := d.Token()
-		if err != nil {
-			return err
-		}
-		key, ok := k.(string)
-		if !ok {
-			return &syntaxError{fmt.Sprintf("unexpected JSON token as document node key: %s", k)}
-		}
-		if err := skipValue(d); err != nil {
-			return err
-		}
-		n.keys = append(n.keys, key)
-	}
+
+	n.keys = keys
+
 	return nil
 }
 
