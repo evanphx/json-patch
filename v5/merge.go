@@ -122,13 +122,15 @@ func MergePatch(docData, patchData []byte) ([]byte, error) {
 func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	doc := &partialDoc{}
 
-	docErr := unmarshal(docData, doc)
-
-	patch := &partialDoc{
-		fastKeys: true,
+	if !json.Valid(docData) || !json.Valid(patchData) {
+		return nil, ErrInvalid
 	}
 
-	patchErr := unmarshal(patchData, patch)
+	docErr := doc.UnmarshalJSON(docData)
+
+	patch := &partialDoc{}
+
+	patchErr := patch.UnmarshalJSON(patchData)
 
 	if isSyntaxError(docErr) {
 		return nil, errBadJSONDoc
@@ -268,7 +270,7 @@ func createObjectMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 }
 
 func unmarshal(data []byte, into interface{}) error {
-	return json.Unmarshal(data, into)
+	return json.UnmarshalValid(data, into)
 }
 
 // createArrayMergePatch will return an array of merge-patch documents capable

@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -98,7 +99,9 @@ func Unmarshal(data []byte, v any) error {
 	// Check for well-formedness.
 	// Avoids filling out half a data structure
 	// before discovering a JSON syntax error.
-	var d decodeState
+	d := ds.Get().(*decodeState)
+	defer ds.Put(d)
+	//var d decodeState
 	d.useNumber = true
 	err := checkValid(data, &d.scan)
 	if err != nil {
@@ -109,11 +112,20 @@ func Unmarshal(data []byte, v any) error {
 	return d.unmarshal(v)
 }
 
+var ds = sync.Pool{
+	New: func() any {
+		return new(decodeState)
+	},
+}
+
 func UnmarshalWithKeys(data []byte, v any) ([]string, error) {
 	// Check for well-formedness.
 	// Avoids filling out half a data structure
 	// before discovering a JSON syntax error.
-	var d decodeState
+
+	d := ds.Get().(*decodeState)
+	defer ds.Put(d)
+	//var d decodeState
 	d.useNumber = true
 	err := checkValid(data, &d.scan)
 	if err != nil {
@@ -122,6 +134,38 @@ func UnmarshalWithKeys(data []byte, v any) ([]string, error) {
 
 	d.init(data)
 	err = d.unmarshal(v)
+	if err != nil {
+		return nil, err
+	}
+
+	return d.lastKeys, nil
+}
+
+func UnmarshalValid(data []byte, v any) error {
+	// Check for well-formedness.
+	// Avoids filling out half a data structure
+	// before discovering a JSON syntax error.
+	d := ds.Get().(*decodeState)
+	defer ds.Put(d)
+	//var d decodeState
+	d.useNumber = true
+
+	d.init(data)
+	return d.unmarshal(v)
+}
+
+func UnmarshalValidWithKeys(data []byte, v any) ([]string, error) {
+	// Check for well-formedness.
+	// Avoids filling out half a data structure
+	// before discovering a JSON syntax error.
+
+	d := ds.Get().(*decodeState)
+	defer ds.Put(d)
+	//var d decodeState
+	d.useNumber = true
+
+	d.init(data)
+	err := d.unmarshal(v)
 	if err != nil {
 		return nil, err
 	}

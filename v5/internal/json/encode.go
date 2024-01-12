@@ -224,6 +224,14 @@ type Marshaler interface {
 	MarshalJSON() ([]byte, error)
 }
 
+type RedirectMarshaler interface {
+	RedirectMarshalJSON() (any, error)
+}
+
+type TrustMarshaler interface {
+	TrustMarshalJSON(b *bytes.Buffer) error
+}
+
 // An UnsupportedTypeError is returned by Marshal when attempting
 // to encode an unsupported value type.
 type UnsupportedTypeError struct {
@@ -406,13 +414,21 @@ func typeEncoder(t reflect.Type) encoderFunc {
 }
 
 var (
-	marshalerType     = reflect.TypeOf((*Marshaler)(nil)).Elem()
-	textMarshalerType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+	marshalerType      = reflect.TypeOf((*Marshaler)(nil)).Elem()
+	redirMarshalerType = reflect.TypeOf((*RedirectMarshaler)(nil)).Elem()
+	trustMarshalerType = reflect.TypeOf((*TrustMarshaler)(nil)).Elem()
+	textMarshalerType  = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 )
 
 // newTypeEncoder constructs an encoderFunc for a type.
 // The returned encoder only checks CanAddr when allowAddr is true.
 func newTypeEncoder(t reflect.Type, allowAddr bool) encoderFunc {
+	if t.Implements(redirMarshalerType) {
+		return redirMarshalerEncoder
+	}
+	if t.Implements(trustMarshalerType) {
+		return marshalerTrustEncoder
+	}
 	// If we have a non-pointer value whose type implements
 	// Marshaler with a value receiver, then we're better off taking
 	// the address of the value - otherwise we end up with an
@@ -464,6 +480,46 @@ func invalidValueEncoder(e *encodeState, v reflect.Value, _ encOpts) {
 	e.WriteString("null")
 }
 
+func redirMarshalerEncoder(e *encodeState, v reflect.Value, opts encOpts) {
+	if v.Kind() == reflect.Pointer && v.IsNil() {
+		e.WriteString("null")
+		return
+	}
+	m, ok := v.Interface().(RedirectMarshaler)
+	if !ok {
+		e.WriteString("null")
+		return
+	}
+
+	iv, err := m.RedirectMarshalJSON()
+	if err != nil {
+		e.error(&MarshalerError{v.Type(), err, "RedirectMarshalJSON"})
+		return
+	}
+
+	e.marshal(iv, opts)
+}
+
+func marshalerTrustEncoder(e *encodeState, v reflect.Value, opts encOpts) {
+	if v.Kind() == reflect.Pointer && v.IsNil() {
+		e.WriteString("null")
+		return
+	}
+	m, ok := v.Interface().(TrustMarshaler)
+	if !ok {
+		e.WriteString("null")
+		return
+	}
+	err := m.TrustMarshalJSON(&e.Buffer)
+	if err == nil {
+		//_, err = e.Buffer.Write(b)
+		// copy JSON into buffer, checking validity.
+		//err = compact(&e.Buffer, b, opts.escapeHTML)
+	}
+	if err != nil {
+		e.error(&MarshalerError{v.Type(), err, "MarshalJSON"})
+	}
+}
 func marshalerEncoder(e *encodeState, v reflect.Value, opts encOpts) {
 	if v.Kind() == reflect.Pointer && v.IsNil() {
 		e.WriteString("null")
