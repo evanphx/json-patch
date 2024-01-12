@@ -727,6 +727,11 @@ var BadCases = []BadCase{
 		`[{"op": "copy", "path": "/qux", "from": "/baz"}]`,
 		false,
 	},
+	{
+		`{ "foo": {"bar": []}}`,
+		`[{"op": "replace", "path": "/foo/bar", "value": null}, {"op": "add", "path": "/foo/bar/0", "value": "blah"}]`,
+		false,
+	},
 }
 
 // This is not thread safe, so we cannot run patch tests in parallel.
