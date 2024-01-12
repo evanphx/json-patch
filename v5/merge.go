@@ -3,7 +3,9 @@ package jsonpatch
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"reflect"
 )
 
@@ -183,6 +185,12 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 }
 
 func isSyntaxError(err error) bool {
+	if errors.Is(err, io.EOF) {
+		return true
+	}
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
 	if _, ok := err.(*json.SyntaxError); ok {
 		return true
 	}
