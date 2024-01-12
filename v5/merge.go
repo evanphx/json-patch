@@ -2,11 +2,12 @@ package jsonpatch
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"reflect"
+
+	"github.com/evanphx/json-patch/v5/internal/json"
 )
 
 func merge(cur, patch *lazyNode, mergeMerge bool) *lazyNode {
@@ -119,24 +120,28 @@ func MergePatch(docData, patchData []byte) ([]byte, error) {
 }
 
 func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
+	if !json.Valid(docData) {
+		return nil, errBadJSONDoc
+	}
+
+	if !json.Valid(patchData) {
+		return nil, errBadJSONPatch
+	}
+
 	doc := &partialDoc{}
 
-	docErr := unmarshal(docData, doc)
+	docErr := doc.UnmarshalJSON(docData)
 
 	patch := &partialDoc{}
 
-	patchErr := unmarshal(patchData, patch)
+	patchErr := patch.UnmarshalJSON(patchData)
 
 	if isSyntaxError(docErr) {
 		return nil, errBadJSONDoc
 	}
 
 	if isSyntaxError(patchErr) {
-		if json.Valid(patchData) {
-			return patchData, nil
-		}
-
-		return nil, errBadJSONPatch
+		return patchData, nil
 	}
 
 	if docErr == nil && doc.obj == nil {
@@ -144,7 +149,7 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	}
 
 	if patchErr == nil && patch.obj == nil {
-		return nil, errBadJSONPatch
+		return patchData, nil
 	}
 
 	if docErr != nil || patchErr != nil {
@@ -262,9 +267,7 @@ func createObjectMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 }
 
 func unmarshal(data []byte, into interface{}) error {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.UseNumber()
-	return dec.Decode(into)
+	return json.UnmarshalValid(data, into)
 }
 
 // createArrayMergePatch will return an array of merge-patch documents capable

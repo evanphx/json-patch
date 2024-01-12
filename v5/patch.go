@@ -2,11 +2,12 @@ package jsonpatch
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 
+	"github.com/evanphx/json-patch/v5/internal/json"
 	"github.com/pkg/errors"
 )
 
@@ -111,14 +112,14 @@ func newRawMessage(buf []byte) *json.RawMessage {
 	return &ra
 }
 
-func (n *lazyNode) MarshalJSON() ([]byte, error) {
+func (n *lazyNode) RedirectMarshalJSON() (any, error) {
 	switch n.which {
 	case eRaw:
-		return json.Marshal(n.raw)
+		return n.raw, nil
 	case eDoc:
-		return json.Marshal(n.doc)
+		return n.doc, nil
 	case eAry:
-		return json.Marshal(n.ary.nodes)
+		return n.ary.nodes, nil
 	default:
 		return nil, ErrUnknownType
 	}
@@ -132,39 +133,38 @@ func (n *lazyNode) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (n *partialDoc) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	if _, err := buf.WriteString("{"); err != nil {
-		return nil, err
+func (n *partialDoc) TrustMarshalJSON(buf *bytes.Buffer) error {
+	if err := buf.WriteByte('{'); err != nil {
+		return err
 	}
 	for i, k := range n.keys {
 		if i > 0 {
-			if _, err := buf.WriteString(", "); err != nil {
-				return nil, err
+			if err := buf.WriteByte(','); err != nil {
+				return err
 			}
 		}
 		key, err := json.Marshal(k)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if _, err := buf.Write(key); err != nil {
-			return nil, err
+			return err
 		}
-		if _, err := buf.WriteString(": "); err != nil {
-			return nil, err
+		if err := buf.WriteByte(':'); err != nil {
+			return err
 		}
 		value, err := json.Marshal(n.obj[k])
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if _, err := buf.Write(value); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	if _, err := buf.WriteString("}"); err != nil {
-		return nil, err
+	if err := buf.WriteByte('}'); err != nil {
+		return err
 	}
-	return buf.Bytes(), nil
+	return nil
 }
 
 type syntaxError struct {
@@ -176,83 +176,44 @@ func (err *syntaxError) Error() string {
 }
 
 func (n *partialDoc) UnmarshalJSON(data []byte) error {
-	if err := unmarshal(data, &n.obj); err != nil {
+	keys, err := json.UnmarshalValidWithKeys(data, &n.obj)
+	if err != nil {
 		return err
 	}
-	buffer := bytes.NewBuffer(data)
-	d := json.NewDecoder(buffer)
-	if t, err := d.Token(); err != nil {
-		return err
-	} else if t != startObject {
-		return &syntaxError{fmt.Sprintf("unexpected JSON token in document node: %v", t)}
-	}
-	for d.More() {
-		k, err := d.Token()
-		if err != nil {
-			return err
-		}
-		key, ok := k.(string)
-		if !ok {
-			return &syntaxError{fmt.Sprintf("unexpected JSON token as document node key: %s", k)}
-		}
-		if err := skipValue(d); err != nil {
-			return err
-		}
-		n.keys = append(n.keys, key)
-	}
+
+	n.keys = keys
+
 	return nil
 }
 
 func (n *partialArray) UnmarshalJSON(data []byte) error {
-	return json.Unmarshal(data, &n.nodes)
+	return json.UnmarshalValid(data, &n.nodes)
 }
 
-func (n *partialArray) MarshalJSON() ([]byte, error) {
-	return json.Marshal(n.nodes)
-}
-
-func skipValue(d *json.Decoder) error {
-	t, err := d.Token()
-	if err != nil {
-		return err
-	}
-	if t != startObject && t != startArray {
-		return nil
-	}
-	for d.More() {
-		if t == startObject {
-			// consume key token
-			if _, err := d.Token(); err != nil {
-				return err
-			}
-		}
-		if err := skipValue(d); err != nil {
-			return err
-		}
-	}
-	end, err := d.Token()
-	if err != nil {
-		return err
-	}
-	if t == startObject && end != endObject {
-		return &syntaxError{msg: "expected close object token"}
-	}
-	if t == startArray && end != endArray {
-		return &syntaxError{msg: "expected close object token"}
-	}
-	return nil
+func (n *partialArray) RedirectMarshalJSON() (interface{}, error) {
+	return n.nodes, nil
 }
 
 func deepCopy(src *lazyNode) (*lazyNode, int, error) {
 	if src == nil {
 		return nil, 0, nil
 	}
-	a, err := src.MarshalJSON()
+	a, err := json.Marshal(src)
 	if err != nil {
 		return nil, 0, err
 	}
 	sz := len(a)
 	return newLazyNode(newRawMessage(a)), sz, nil
+}
+
+func (n *lazyNode) nextByte() byte {
+	s := []byte(*n.raw)
+
+	for unicode.IsSpace(rune(s[0])) {
+		s = s[1:]
+	}
+
+	return s[0]
 }
 
 func (n *lazyNode) intoDoc() (*partialDoc, error) {
@@ -261,6 +222,10 @@ func (n *lazyNode) intoDoc() (*partialDoc, error) {
 	}
 
 	if n.raw == nil {
+		return nil, ErrInvalid
+	}
+
+	if n.nextByte() != '{' {
 		return nil, ErrInvalid
 	}
 
@@ -374,11 +339,11 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 
 				var ns, os string
 
-				err := json.Unmarshal(nc, &ns)
+				err := json.UnmarshalValid(nc, &ns)
 				if err != nil {
 					return false
 				}
-				err = json.Unmarshal(oc, &os)
+				err = json.UnmarshalValid(oc, &os)
 				if err != nil {
 					return false
 				}
@@ -788,7 +753,7 @@ func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {
 			}
 		}
 
-		err := json.Unmarshal(*val.raw, pd)
+		err := json.UnmarshalValid(*val.raw, pd)
 
 		if err != nil {
 			return err
@@ -1178,6 +1143,10 @@ func Equal(a, b []byte) bool {
 
 // DecodePatch decodes the passed JSON document as an RFC 6902 patch.
 func DecodePatch(buf []byte) (Patch, error) {
+	if !json.Valid(buf) {
+		return nil, ErrInvalid
+	}
+
 	var p Patch
 
 	err := unmarshal(buf, &p)
@@ -1216,6 +1185,10 @@ func (p Patch) ApplyIndent(doc []byte, indent string) ([]byte, error) {
 func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyOptions) ([]byte, error) {
 	if len(doc) == 0 {
 		return doc, nil
+	}
+
+	if !json.Valid(doc) {
+		return nil, ErrInvalid
 	}
 
 	raw := json.RawMessage(doc)
