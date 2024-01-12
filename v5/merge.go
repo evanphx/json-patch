@@ -120,11 +120,15 @@ func MergePatch(docData, patchData []byte) ([]byte, error) {
 }
 
 func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
-	doc := &partialDoc{}
-
-	if !json.Valid(docData) || !json.Valid(patchData) {
-		return nil, ErrInvalid
+	if !json.Valid(docData) {
+		return nil, errBadJSONDoc
 	}
+
+	if !json.Valid(patchData) {
+		return nil, errBadJSONPatch
+	}
+
+	doc := &partialDoc{}
 
 	docErr := doc.UnmarshalJSON(docData)
 
@@ -137,11 +141,7 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	}
 
 	if isSyntaxError(patchErr) {
-		if json.Valid(patchData) {
-			return patchData, nil
-		}
-
-		return nil, errBadJSONPatch
+		return patchData, nil
 	}
 
 	if docErr == nil && doc.obj == nil {
@@ -149,10 +149,7 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	}
 
 	if patchErr == nil && patch.obj == nil {
-		if json.Valid(patchData) {
-			return patchData, nil
-		}
-		return nil, errBadJSONPatch
+		return patchData, nil
 	}
 
 	if docErr != nil || patchErr != nil {
