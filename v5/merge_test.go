@@ -69,6 +69,7 @@ func TestMergePatchNilArray(t *testing.T) {
 	}
 
 	for _, c := range cases {
+		t.Log(c.original)
 		act := mergePatch(c.original, c.patch)
 
 		if !compareJSON(c.res, act) {

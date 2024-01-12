@@ -45,7 +45,7 @@ var (
 type lazyNode struct {
 	raw   *json.RawMessage
 	doc   *partialDoc
-	ary   partialArray
+	ary   *partialArray
 	which int
 }
 
@@ -56,11 +56,15 @@ type Operation map[string]*json.RawMessage
 type Patch []Operation
 
 type partialDoc struct {
+	self *lazyNode
 	keys []string
 	obj  map[string]*lazyNode
 }
 
-type partialArray []*lazyNode
+type partialArray struct {
+	self  *lazyNode
+	nodes []*lazyNode
+}
 
 type container interface {
 	get(key string, options *ApplyOptions) (*lazyNode, error)
@@ -114,7 +118,7 @@ func (n *lazyNode) MarshalJSON() ([]byte, error) {
 	case eDoc:
 		return json.Marshal(n.doc)
 	case eAry:
-		return json.Marshal(n.ary)
+		return json.Marshal(n.ary.nodes)
 	default:
 		return nil, ErrUnknownType
 	}
@@ -199,6 +203,14 @@ func (n *partialDoc) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (n *partialArray) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &n.nodes)
+}
+
+func (n *partialArray) MarshalJSON() ([]byte, error) {
+	return json.Marshal(n.nodes)
+}
+
 func skipValue(d *json.Decoder) error {
 	t, err := d.Token()
 	if err != nil {
@@ -268,7 +280,7 @@ func (n *lazyNode) intoDoc() (*partialDoc, error) {
 
 func (n *lazyNode) intoAry() (*partialArray, error) {
 	if n.which == eAry {
-		return &n.ary, nil
+		return n.ary, nil
 	}
 
 	if n.raw == nil {
@@ -282,7 +294,7 @@ func (n *lazyNode) intoAry() (*partialArray, error) {
 	}
 
 	n.which = eAry
-	return &n.ary, nil
+	return n.ary, nil
 }
 
 func (n *lazyNode) compact() []byte {
@@ -420,12 +432,12 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 		return false
 	}
 
-	if len(n.ary) != len(o.ary) {
+	if len(n.ary.nodes) != len(o.ary.nodes) {
 		return false
 	}
 
-	for idx, val := range n.ary {
-		if !val.equal(o.ary[idx]) {
+	for idx, val := range n.ary.nodes {
+		if !val.equal(o.ary.nodes[idx]) {
 			return false
 		}
 	}
@@ -541,6 +553,9 @@ func findObject(pd *container, path string, options *ApplyOptions) (container, s
 	split := strings.Split(path, "/")
 
 	if len(split) < 2 {
+		if path == "" {
+			return doc, ""
+		}
 		return nil, ""
 	}
 
@@ -596,6 +611,9 @@ func (d *partialDoc) add(key string, val *lazyNode, options *ApplyOptions) error
 }
 
 func (d *partialDoc) get(key string, options *ApplyOptions) (*lazyNode, error) {
+	if key == "" {
+		return d.self, nil
+	}
 	v, ok := d.obj[key]
 	if !ok {
 		return v, errors.Wrapf(ErrMissing, "unable to get nonexistent key: %s", key)
@@ -635,19 +653,19 @@ func (d *partialArray) set(key string, val *lazyNode, options *ApplyOptions) err
 		if !options.SupportNegativeIndices {
 			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 		}
-		if idx < -len(*d) {
+		if idx < -len(d.nodes) {
 			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 		}
-		idx += len(*d)
+		idx += len(d.nodes)
 	}
 
-	(*d)[idx] = val
+	d.nodes[idx] = val
 	return nil
 }
 
 func (d *partialArray) add(key string, val *lazyNode, options *ApplyOptions) error {
 	if key == "-" {
-		*d = append(*d, val)
+		d.nodes = append(d.nodes, val)
 		return nil
 	}
 
@@ -656,11 +674,11 @@ func (d *partialArray) add(key string, val *lazyNode, options *ApplyOptions) err
 		return errors.Wrapf(err, "value was not a proper array index: '%s'", key)
 	}
 
-	sz := len(*d) + 1
+	sz := len(d.nodes) + 1
 
 	ary := make([]*lazyNode, sz)
 
-	cur := *d
+	cur := d
 
 	if idx >= len(ary) {
 		return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
@@ -676,15 +694,19 @@ func (d *partialArray) add(key string, val *lazyNode, options *ApplyOptions) err
 		idx += len(ary)
 	}
 
-	copy(ary[0:idx], cur[0:idx])
+	copy(ary[0:idx], cur.nodes[0:idx])
 	ary[idx] = val
-	copy(ary[idx+1:], cur[idx:])
+	copy(ary[idx+1:], cur.nodes[idx:])
 
-	*d = ary
+	d.nodes = ary
 	return nil
 }
 
 func (d *partialArray) get(key string, options *ApplyOptions) (*lazyNode, error) {
+	if key == "" {
+		return d.self, nil
+	}
+
 	idx, err := strconv.Atoi(key)
 
 	if err != nil {
@@ -695,17 +717,17 @@ func (d *partialArray) get(key string, options *ApplyOptions) (*lazyNode, error)
 		if !options.SupportNegativeIndices {
 			return nil, errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 		}
-		if idx < -len(*d) {
+		if idx < -len(d.nodes) {
 			return nil, errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 		}
-		idx += len(*d)
+		idx += len(d.nodes)
 	}
 
-	if idx >= len(*d) {
+	if idx >= len(d.nodes) {
 		return nil, errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 	}
 
-	return (*d)[idx], nil
+	return d.nodes[idx], nil
 }
 
 func (d *partialArray) remove(key string, options *ApplyOptions) error {
@@ -714,9 +736,9 @@ func (d *partialArray) remove(key string, options *ApplyOptions) error {
 		return err
 	}
 
-	cur := *d
+	cur := d
 
-	if idx >= len(cur) {
+	if idx >= len(cur.nodes) {
 		if options.AllowMissingPathOnRemove {
 			return nil
 		}
@@ -727,21 +749,21 @@ func (d *partialArray) remove(key string, options *ApplyOptions) error {
 		if !options.SupportNegativeIndices {
 			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 		}
-		if idx < -len(cur) {
+		if idx < -len(cur.nodes) {
 			if options.AllowMissingPathOnRemove {
 				return nil
 			}
 			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
 		}
-		idx += len(cur)
+		idx += len(cur.nodes)
 	}
 
-	ary := make([]*lazyNode, len(cur)-1)
+	ary := make([]*lazyNode, len(cur.nodes)-1)
 
-	copy(ary[0:idx], cur[0:idx])
-	copy(ary[idx:], cur[idx+1:])
+	copy(ary[0:idx], cur.nodes[0:idx])
+	copy(ary[idx:], cur.nodes[idx+1:])
 
-	*d = ary
+	d.nodes = ary
 	return nil
 }
 
@@ -749,6 +771,32 @@ func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
 		return errors.Wrapf(ErrMissing, "add operation failed to decode path")
+	}
+
+	// special case, adding to empty means replacing the container with the value given
+	if path == "" {
+		val := op.value()
+
+		var pd container
+		if (*val.raw)[0] == '[' {
+			pd = &partialArray{
+				self: val,
+			}
+		} else {
+			pd = &partialDoc{
+				self: val,
+			}
+		}
+
+		err := json.Unmarshal(*val.raw, pd)
+
+		if err != nil {
+			return err
+		}
+
+		*doc = pd
+
+		return nil
 	}
 
 	if options.EnsurePathExistsOnAdd {
@@ -806,9 +854,9 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 			if arrIndex, err = strconv.Atoi(part); err == nil {
 				pa, ok := doc.(*partialArray)
 
-				if ok && arrIndex >= len(*pa)+1 {
+				if ok && arrIndex >= len(pa.nodes)+1 {
 					// Pad the array with null values up to the required index.
-					for i := len(*pa); i <= arrIndex-1; i++ {
+					for i := len(pa.nodes); i <= arrIndex-1; i++ {
 						doc.add(strconv.Itoa(i), newLazyNode(newRawMessage(rawJSONNull)), options)
 					}
 				}
@@ -946,7 +994,7 @@ func (p Patch) replace(doc *container, op Operation, options *ApplyOptions) erro
 
 		switch val.which {
 		case eAry:
-			*doc = &val.ary
+			*doc = val.ary
 		case eDoc:
 			*doc = val.doc
 		case eRaw:
@@ -979,6 +1027,10 @@ func (p Patch) move(doc *container, op Operation, options *ApplyOptions) error {
 	from, err := op.From()
 	if err != nil {
 		return errors.Wrapf(err, "move operation failed to decode from")
+	}
+
+	if from == "" {
+		return errors.Wrapf(ErrInvalid, "unable to move entire document to another path")
 	}
 
 	con, key := findObject(doc, from, options)
@@ -1030,7 +1082,7 @@ func (p Patch) test(doc *container, op Operation, options *ApplyOptions) error {
 			self.doc = sv
 			self.which = eDoc
 		case *partialArray:
-			self.ary = *sv
+			self.ary = sv
 			self.which = eAry
 		}
 
@@ -1079,7 +1131,7 @@ func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64, op
 	con, key := findObject(doc, from, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "copy operation does not apply: doc is missing from path: %s", from)
+		return errors.Wrapf(ErrMissing, "copy operation does not apply: doc is missing from path: \"%s\"", from)
 	}
 
 	val, err := con.get(key, options)
@@ -1166,11 +1218,18 @@ func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyO
 		return doc, nil
 	}
 
+	raw := json.RawMessage(doc)
+	self := newLazyNode(&raw)
+
 	var pd container
 	if doc[0] == '[' {
-		pd = &partialArray{}
+		pd = &partialArray{
+			self: self,
+		}
 	} else {
-		pd = &partialDoc{}
+		pd = &partialDoc{
+			self: self,
+		}
 	}
 
 	err := unmarshal(doc, pd)

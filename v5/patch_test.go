@@ -585,6 +585,34 @@ var Cases = []Case{
 		false,
 		false,
 	},
+	{
+		`{"foo": 1}`,
+		`[ { "op": "copy", "from": "", "path": "/bar"}]`,
+		`{"foo": 1, "bar": {"foo": 1}}`,
+		false,
+		false,
+	},
+	{
+		`[{"foo": 1}]`,
+		`[ { "op": "copy", "from": "", "path": "/1"}]`,
+		`[{"foo": 1}, [{"foo": 1}]]`,
+		false,
+		false,
+	},
+	{
+		`{}`,
+		`[{"op":"add","path":"","value":{"foo":"bar"}}]`,
+		`{"foo": "bar"}`,
+		false,
+		false,
+	},
+	{
+		`[]`,
+		`[{"op":"add","path":"","value":{"foo":"bar"}}, {"op": "add", "path": "/qux", "value": 1}]`,
+		`{"foo": "bar", "qux": 1}`,
+		false,
+		false,
+	},
 }
 
 type BadCase struct {
@@ -641,11 +669,6 @@ var BadCases = []BadCase{
 		`{ "foo": "bar" }`,
 		`[ { "op": "add", "pathz": "/baz", "value": "qux" } ]`,
 		true,
-	},
-	{
-		`{ "foo": "bar" }`,
-		`[ { "op": "add", "path": "", "value": "qux" } ]`,
-		false,
 	},
 	{
 		`{ "foo": ["bar","baz"]}`,
@@ -744,6 +767,11 @@ var BadCases = []BadCase{
 		`[{"op": "replace", "path": ""}]`,
 		true,
 	},
+	{
+		`{ "foo": "bar"}`,
+		`[{"op": "move", "path": "/qux", "from": ""}]`,
+		false,
+	},
 }
 
 // This is not thread safe, so we cannot run patch tests in parallel.
@@ -819,9 +847,10 @@ func TestAllCases(t *testing.T) {
 		}
 
 		if err == nil && !c.failOnDecode {
-			_, err = p.Apply([]byte(c.doc))
+			out, err := p.Apply([]byte(c.doc))
 
 			if err == nil {
+				t.Log(string(out))
 				t.Errorf("Patch %q should have failed to apply but it did not", c.patch)
 			}
 
