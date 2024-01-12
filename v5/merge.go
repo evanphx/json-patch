@@ -130,6 +130,10 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	}
 
 	if isSyntaxError(patchErr) {
+		if json.Valid(patchData) {
+			return patchData, nil
+		}
+
 		return nil, errBadJSONPatch
 	}
 
@@ -154,6 +158,10 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 			patchErr = unmarshal(patchData, patchAry)
 
 			if patchErr != nil {
+				// Not an array either, a literal is the result directly.
+				if json.Valid(patchData) {
+					return patchData, nil
+				}
 				return nil, errBadJSONPatch
 			}
 

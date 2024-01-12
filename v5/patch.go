@@ -254,6 +254,10 @@ func (n *lazyNode) intoDoc() (*partialDoc, error) {
 
 	err := unmarshal(*n.raw, &n.doc)
 
+	if n.doc == nil {
+		return nil, ErrInvalid
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -308,6 +312,10 @@ func (n *lazyNode) tryDoc() bool {
 		return false
 	}
 
+	if n.doc == nil {
+		return false
+	}
+
 	n.which = eDoc
 	return true
 }
@@ -325,6 +333,18 @@ func (n *lazyNode) tryAry() bool {
 
 	n.which = eAry
 	return true
+}
+
+func (n *lazyNode) isNull() bool {
+	if n == nil {
+		return true
+	}
+
+	if n.raw == nil {
+		return true
+	}
+
+	return bytes.Equal(n.compact(), rawJSONNull)
 }
 
 func (n *lazyNode) equal(o *lazyNode) bool {
@@ -466,6 +486,10 @@ func (o Operation) From() (string, error) {
 
 func (o Operation) value() *lazyNode {
 	if obj, ok := o["value"]; ok {
+		// A `null` gets decoded as a nil RawMessage, so let's fix it up here.
+		if obj == nil {
+			return newLazyNode(newRawMessage(rawJSONNull))
+		}
 		return newLazyNode(obj)
 	}
 
@@ -818,7 +842,10 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 				newNode := newLazyNode(newRawMessage(rawJSONObject))
 
 				doc.add(part, newNode, options)
-				doc, _ = newNode.intoDoc()
+				doc, err = newNode.intoDoc()
+				if err != nil {
+					return err
+				}
 			}
 		} else {
 			if isArray(*target.raw) {
@@ -1025,12 +1052,14 @@ func (p Patch) test(doc *container, op Operation, options *ApplyOptions) error {
 		return errors.Wrapf(err, "error in test for path: '%s'", path)
 	}
 
+	ov := op.value()
+
 	if val == nil {
-		if op.value() == nil || op.value().raw == nil {
+		if ov.isNull() {
 			return nil
 		}
 		return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
-	} else if op.value() == nil {
+	} else if ov.isNull() {
 		return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
 	}
 

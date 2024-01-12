@@ -2,7 +2,6 @@ package jsonpatch
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 )
 
@@ -10,7 +9,7 @@ func mergePatch(doc, patch string) string {
 	out, err := MergePatch([]byte(doc), []byte(patch))
 
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("%s: %s", err, patch))
 	}
 
 	return string(out)
@@ -166,8 +165,8 @@ var rfcTests = []struct {
 	{target: `{"a":[{"b":"c"}]}`, patch: `{"a":[1]}`, expected: `{"a":[1]}`},
 	{target: `["a","b"]`, patch: `["c","d"]`, expected: `["c","d"]`},
 	{target: `{"a":"b"}`, patch: `["c"]`, expected: `["c"]`},
-	// {target: `{"a":"foo"}`, patch: `null`, expected: `null`},
-	// {target: `{"a":"foo"}`, patch: `"bar"`, expected: `"bar"`},
+	{target: `{"a":"foo"}`, patch: `null`, expected: `null`},
+	{target: `{"a":"foo"}`, patch: `"bar"`, expected: `"bar"`},
 	{target: `{"e":null}`, patch: `{"a":1}`, expected: `{"a":1,"e":null}`},
 	{target: `[1,2]`, patch: `{"a":"b","c":null}`, expected: `{"a":"b"}`},
 	{target: `{}`, patch: `{"a":{"bb":{"ccc":null}}}`, expected: `{"a":{"bb":{}}}`},
@@ -181,33 +180,6 @@ func TestMergePatchRFCCases(t *testing.T) {
 			t.Errorf("case[%d], patch '%s' did not apply properly to '%s'. expected:\n'%s'\ngot:\n'%s'", i, c.patch, c.target, c.expected, out)
 		}
 	}
-}
-
-var rfcFailTests = `
-     {"a":"foo"}  |   null
-     {"a":"foo"}  |   "bar"
-`
-
-func TestMergePatchFailRFCCases(t *testing.T) {
-	tests := strings.Split(rfcFailTests, "\n")
-
-	for _, c := range tests {
-		if strings.TrimSpace(c) == "" {
-			continue
-		}
-
-		parts := strings.SplitN(c, "|", 2)
-
-		doc := strings.TrimSpace(parts[0])
-		pat := strings.TrimSpace(parts[1])
-
-		out, err := MergePatch([]byte(doc), []byte(pat))
-
-		if err != errBadJSONPatch {
-			t.Errorf("error not returned properly: %s, %s", err, string(out))
-		}
-	}
-
 }
 
 func TestResembleJSONArray(t *testing.T) {
