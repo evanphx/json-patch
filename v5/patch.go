@@ -172,7 +172,7 @@ func (err *syntaxError) Error() string {
 }
 
 func (n *partialDoc) UnmarshalJSON(data []byte) error {
-	if err := json.Unmarshal(data, &n.obj); err != nil {
+	if err := unmarshal(data, &n.obj); err != nil {
 		return err
 	}
 	buffer := bytes.NewBuffer(data)
@@ -252,7 +252,7 @@ func (n *lazyNode) intoDoc() (*partialDoc, error) {
 		return nil, ErrInvalid
 	}
 
-	err := json.Unmarshal(*n.raw, &n.doc)
+	err := unmarshal(*n.raw, &n.doc)
 
 	if err != nil {
 		return nil, err
@@ -271,7 +271,7 @@ func (n *lazyNode) intoAry() (*partialArray, error) {
 		return nil, ErrInvalid
 	}
 
-	err := json.Unmarshal(*n.raw, &n.ary)
+	err := unmarshal(*n.raw, &n.ary)
 
 	if err != nil {
 		return nil, err
@@ -302,7 +302,7 @@ func (n *lazyNode) tryDoc() bool {
 		return false
 	}
 
-	err := json.Unmarshal(*n.raw, &n.doc)
+	err := unmarshal(*n.raw, &n.doc)
 
 	if err != nil {
 		return false
@@ -317,7 +317,7 @@ func (n *lazyNode) tryAry() bool {
 		return false
 	}
 
-	err := json.Unmarshal(*n.raw, &n.ary)
+	err := unmarshal(*n.raw, &n.ary)
 
 	if err != nil {
 		return false
@@ -418,7 +418,7 @@ func (o Operation) Kind() string {
 	if obj, ok := o["op"]; ok && obj != nil {
 		var op string
 
-		err := json.Unmarshal(*obj, &op)
+		err := unmarshal(*obj, &op)
 
 		if err != nil {
 			return "unknown"
@@ -435,7 +435,7 @@ func (o Operation) Path() (string, error) {
 	if obj, ok := o["path"]; ok && obj != nil {
 		var op string
 
-		err := json.Unmarshal(*obj, &op)
+		err := unmarshal(*obj, &op)
 
 		if err != nil {
 			return "unknown", err
@@ -452,7 +452,7 @@ func (o Operation) From() (string, error) {
 	if obj, ok := o["from"]; ok && obj != nil {
 		var op string
 
-		err := json.Unmarshal(*obj, &op)
+		err := unmarshal(*obj, &op)
 
 		if err != nil {
 			return "unknown", err
@@ -481,7 +481,7 @@ func (o Operation) ValueInterface() (interface{}, error) {
 
 		var v interface{}
 
-		err := json.Unmarshal(*obj, &v)
+		err := unmarshal(*obj, &v)
 
 		if err != nil {
 			return nil, err
@@ -1099,7 +1099,7 @@ func Equal(a, b []byte) bool {
 func DecodePatch(buf []byte) (Patch, error) {
 	var p Patch
 
-	err := json.Unmarshal(buf, &p)
+	err := unmarshal(buf, &p)
 
 	if err != nil {
 		return nil, err
@@ -1144,7 +1144,7 @@ func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyO
 		pd = &partialDoc{}
 	}
 
-	err := json.Unmarshal(doc, pd)
+	err := unmarshal(doc, pd)
 
 	if err != nil {
 		return nil, err
