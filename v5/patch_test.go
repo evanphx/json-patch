@@ -1236,3 +1236,12 @@ func TestMaintainOrderingIndented(t *testing.T) {
 		})
 	}
 }
+
+// This is a compile time check that encoding/json's RawMessage can be used in Operation
+func init() {
+	msg := json.RawMessage([]byte(`1`))
+
+	_ = Operation{
+		"foo": &msg,
+	}
+}
