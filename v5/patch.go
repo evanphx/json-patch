@@ -38,6 +38,8 @@ var (
 	ErrInvalid      = errors.New("invalid state detected")
 	ErrInvalidIndex = errors.New("invalid index referenced")
 
+	ErrExpectedObject = errors.New("invalid value, expected object")
+
 	rawJSONArray  = []byte("[]")
 	rawJSONObject = []byte("{}")
 	rawJSONNull   = []byte("null")
@@ -134,6 +136,10 @@ func (n *lazyNode) UnmarshalJSON(data []byte) error {
 }
 
 func (n *partialDoc) TrustMarshalJSON(buf *bytes.Buffer) error {
+	if n.obj == nil {
+		return ErrExpectedObject
+	}
+
 	if err := buf.WriteByte('{'); err != nil {
 		return err
 	}
@@ -557,6 +563,10 @@ func findObject(pd *container, path string, options *ApplyOptions) (container, s
 }
 
 func (d *partialDoc) set(key string, val *lazyNode, options *ApplyOptions) error {
+	if d.obj == nil {
+		return ErrExpectedObject
+	}
+
 	found := false
 	for _, k := range d.keys {
 		if k == key {
@@ -579,6 +589,11 @@ func (d *partialDoc) get(key string, options *ApplyOptions) (*lazyNode, error) {
 	if key == "" {
 		return d.self, nil
 	}
+
+	if d.obj == nil {
+		return nil, ErrExpectedObject
+	}
+
 	v, ok := d.obj[key]
 	if !ok {
 		return v, errors.Wrapf(ErrMissing, "unable to get nonexistent key: %s", key)
@@ -587,6 +602,10 @@ func (d *partialDoc) get(key string, options *ApplyOptions) (*lazyNode, error) {
 }
 
 func (d *partialDoc) remove(key string, options *ApplyOptions) error {
+	if d.obj == nil {
+		return ErrExpectedObject
+	}
+
 	_, ok := d.obj[key]
 	if !ok {
 		if options.AllowMissingPathOnRemove {
