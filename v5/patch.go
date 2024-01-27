@@ -142,13 +142,21 @@ func (n *partialDoc) TrustMarshalJSON(buf *bytes.Buffer) error {
 	if err := buf.WriteByte('{'); err != nil {
 		return err
 	}
+	escaped := true
+
+	// n.opts should always be set, but in case we missed a case,
+	// guard.
+	if n.opts != nil {
+		escaped = n.opts.EscapeHTML
+	}
+
 	for i, k := range n.keys {
 		if i > 0 {
 			if err := buf.WriteByte(','); err != nil {
 				return err
 			}
 		}
-		key, err := json.MarshalEscaped(k, n.opts.EscapeHTML)
+		key, err := json.MarshalEscaped(k, escaped)
 		if err != nil {
 			return err
 		}
@@ -158,7 +166,7 @@ func (n *partialDoc) TrustMarshalJSON(buf *bytes.Buffer) error {
 		if err := buf.WriteByte(':'); err != nil {
 			return err
 		}
-		value, err := json.MarshalEscaped(n.obj[k], n.opts.EscapeHTML)
+		value, err := json.MarshalEscaped(n.obj[k], escaped)
 		if err != nil {
 			return err
 		}
