@@ -414,7 +414,7 @@ func (d *partialArray) set(key string, val *lazyNode) error {
 
 	if idx < 0 {
 		if !SupportNegativeIndices {
-			return fmt.Errorf("Unable to access invalid index: %d : %w", idx, ErrInvalidIndex)
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
 		if idx < -len(*d) {
 			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
