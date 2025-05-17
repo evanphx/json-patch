@@ -1,6 +1,8 @@
 package jsonpatch
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"testing"
 )
@@ -693,5 +695,31 @@ func TestMergeMergePatches(t *testing.T) {
 			t.Logf("Expected %v", c.exp)
 			t.Fatalf("Merged merge patch is incorrect")
 		}
+	}
+}
+
+func TestMergePatchWithOptions(t *testing.T) {
+	b := &bytes.Buffer{}
+	enc := json.NewEncoder(b)
+	enc.SetEscapeHTML(false)
+
+	v := struct {
+		X string
+	}{X: "&<>"}
+
+	if err := enc.Encode(&v); err != nil {
+		t.Fatal(err)
+	}
+	target := []byte(`{"key1": "val1", "key2": "val2"}`)
+
+	opts := NewApplyOptions()
+	opts.EscapeHTML = false
+
+	modified, err := MergePatchWithOptions(b.Bytes(), target, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !compareJSON(string(modified), `{"X":"&<>","key1":"val1","key2":"val2"}`) {
+		t.Fatalf("testMergePatchWithOptions fails for %s", string(modified))
 	}
 }

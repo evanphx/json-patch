@@ -111,15 +111,18 @@ var errBadMergeTypes = fmt.Errorf("Mismatched JSON Documents")
 // applying this resulting merged merge patch to a document yields the same
 // as merging each merge patch to the document in succession.
 func MergeMergePatches(patch1Data, patch2Data []byte) ([]byte, error) {
-	return doMergePatch(patch1Data, patch2Data, true)
+	return doMergePatch(patch1Data, patch2Data, true, NewApplyOptions())
 }
 
 // MergePatch merges the patchData into the docData.
 func MergePatch(docData, patchData []byte) ([]byte, error) {
-	return doMergePatch(docData, patchData, false)
+	return doMergePatch(docData, patchData, false, NewApplyOptions())
+}
+func MergePatchWithOptions(docData, patchData []byte, options *ApplyOptions) ([]byte, error) {
+	return doMergePatch(docData, patchData, false, options)
 }
 
-func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
+func doMergePatch(docData, patchData []byte, mergeMerge bool, options *ApplyOptions) ([]byte, error) {
 	if !json.Valid(docData) {
 		return nil, ErrBadJSONDoc
 	}
@@ -127,8 +130,6 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	if !json.Valid(patchData) {
 		return nil, ErrBadJSONPatch
 	}
-
-	options := NewApplyOptions()
 
 	doc := &partialDoc{
 		opts: options,
