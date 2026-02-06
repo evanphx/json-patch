@@ -23,7 +23,7 @@ var (
 	// Default to true.
 	SupportNegativeIndices bool = true
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
-	// "copy" operations in a patch.
+	// OpKindCopy operations in a patch.
 	AccumulatedCopySizeLimit int64 = 0
 	startObject                    = json.Delim('{')
 	endObject                      = json.Delim('}')
@@ -54,6 +54,18 @@ type lazyNode struct {
 
 // Operation is a single JSON-Patch step, such as a single 'add' operation.
 type Operation map[string]*json.RawMessage
+
+type OperationKind string
+
+const (
+	OpKindUnknown OperationKind = "unknown"
+	OpKindAdd     OperationKind = "add"
+	OpKindRemove  OperationKind = "remove"
+	OpKindReplace OperationKind = "replace"
+	OpKindMove    OperationKind = "move"
+	OpKindTest    OperationKind = "test"
+	OpKindCopy    OperationKind = "copy"
+)
 
 // Patch is an ordered collection of Operations.
 type Patch []Operation
@@ -86,7 +98,7 @@ type ApplyOptions struct {
 	// Default to true.
 	SupportNegativeIndices bool
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
-	// "copy" operations in a patch.
+	// OpKindCopy operations in a patch.
 	AccumulatedCopySizeLimit int64
 	// AllowMissingPathOnRemove indicates whether to fail "remove" operations when the target path is missing.
 	// Default to false.
@@ -431,54 +443,48 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 }
 
 // Kind reads the "op" field of the Operation.
-func (o Operation) Kind() string {
-	if obj, ok := o["op"]; ok && obj != nil {
-		var op string
-
-		err := unmarshal(*obj, &op)
-
-		if err != nil {
-			return "unknown"
-		}
-
-		return op
+func (o Operation) Kind() OperationKind {
+	from, err := o.extractField("op")
+	if err != nil || from == "" {
+		return OpKindUnknown
 	}
-
-	return "unknown"
+	return OperationKind(from)
 }
 
 // Path reads the "path" field of the Operation.
 func (o Operation) Path() (string, error) {
-	if obj, ok := o["path"]; ok && obj != nil {
-		var op string
-
-		err := unmarshal(*obj, &op)
-
-		if err != nil {
-			return "unknown", err
-		}
-
-		return op, nil
+	from, err := o.extractField("path")
+	if err != nil {
+		return "unknown", err
 	}
-
-	return "unknown", fmt.Errorf("operation missing path field: %w", ErrMissing)
+	return from, nil
 }
 
 // From reads the "from" field of the Operation.
 func (o Operation) From() (string, error) {
-	if obj, ok := o["from"]; ok && obj != nil {
-		var op string
+	from, err := o.extractField("from")
+	if err != nil {
+		return "unknown", err
+	}
+	return from, nil
+}
 
-		err := unmarshal(*obj, &op)
+// extractField is a helper function to read a string field from the Operation,
+// returning an error if the field is not a valid string or missing.
+func (o Operation) extractField(fieldName string) (string, error) {
+	if obj, ok := o[fieldName]; ok && obj != nil {
+		var field string
+
+		err := unmarshal(*obj, &field)
 
 		if err != nil {
-			return "unknown", err
+			return "", fmt.Errorf("operation, unable to extract field %s: %w", fieldName, err)
 		}
 
-		return op, nil
+		return field, nil
 	}
 
-	return "unknown", fmt.Errorf("operation, missing from field: %w", ErrMissing)
+	return "", fmt.Errorf("operation missing %s field: %w", fieldName, ErrMissing)
 }
 
 func (o Operation) value() *lazyNode {
@@ -916,17 +922,17 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 
 func validateOperation(op Operation) error {
 	switch op.Kind() {
-	case "add", "replace":
+	case OpKindAdd, OpKindReplace:
 		if _, err := op.ValueInterface(); err != nil {
 			return fmt.Errorf("failed to decode 'value': %w", err)
 		}
-	case "move", "copy":
+	case OpKindMove, OpKindCopy:
 		if _, err := op.From(); err != nil {
 			return fmt.Errorf("failed to decode 'from': %w", err)
 		}
-	case "remove", "test":
+	case OpKindRemove, OpKindTest:
 	default:
-		return fmt.Errorf("unsupported operation")
+		return fmt.Errorf("unsupported operation '%s'", op.Kind())
 	}
 
 	if _, err := op.Path(); err != nil {
@@ -1254,17 +1260,17 @@ func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyO
 
 	for _, op := range p {
 		switch op.Kind() {
-		case "add":
+		case OpKindAdd:
 			err = p.add(&pd, op, options)
-		case "remove":
+		case OpKindRemove:
 			err = p.remove(&pd, op, options)
-		case "replace":
+		case OpKindReplace:
 			err = p.replace(&pd, op, options)
-		case "move":
+		case OpKindMove:
 			err = p.move(&pd, op, options)
-		case "test":
+		case OpKindTest:
 			err = p.test(&pd, op, options)
-		case "copy":
+		case OpKindCopy:
 			err = p.copy(&pd, op, &accumulatedCopySize, options)
 		default:
 			err = fmt.Errorf("Unexpected kind: %s", op.Kind())
