@@ -878,7 +878,7 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 				}
 
 				newNode := newLazyNode(newRawMessage(rawJSONArray))
-				doc.add(part, newNode, options)
+				doc.add(decodePatchKey(part), newNode, options)
 				doc, _ = newNode.intoAry()
 
 				// Pad the new array with null values up to the required index.
@@ -888,7 +888,7 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 			} else {
 				newNode := newLazyNode(newRawMessage(rawJSONObject))
 
-				doc.add(part, newNode, options)
+				doc.add(decodePatchKey(part), newNode, options)
 				doc, err = newNode.intoDoc(options)
 				if err != nil {
 					return err
