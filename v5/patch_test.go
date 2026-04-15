@@ -1245,3 +1245,26 @@ func init() {
 		"foo": &msg,
 	}
 }
+
+func TestEnsurePathEscapedSlash(t *testing.T) {
+	doc := `{ "foo": "bar" }`
+	patch := `[ { "op": "add", "path": "/with~1slash/nested", "value": "baz" } ]`
+	expected := `{"foo":"bar","with/slash":{"nested":"baz"}}`
+
+	p, err := DecodePatch([]byte(patch))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	options := NewApplyOptions()
+	options.EnsurePathExistsOnAdd = true
+
+	out, err := p.ApplyWithOptions([]byte(doc), options)
+	if err != nil {
+		t.Fatalf("Failed to apply patch: %v", err)
+	}
+
+	if !compareJSON(expected, string(out)) {
+		t.Fatalf("Expected:\n%s\nGot:\n%s", expected, string(out))
+	}
+}
