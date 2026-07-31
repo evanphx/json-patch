@@ -3,6 +3,7 @@ package jsonpatch
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -499,13 +500,6 @@ var Cases = []Case{
 		true,
 	},
 	{
-		`{}`,
-		`[ { "op": "add", "path": "/a/b/3", "value": "hello" } ]`,
-		`{"a": {"b": [null, null, null, "hello"] } }`,
-		false,
-		true,
-	},
-	{
 		`{"a": []}`,
 		`[ { "op": "add", "path": "/a/-1", "value": "hello" } ]`,
 		`{"a": ["hello"]}`,
@@ -523,13 +517,6 @@ var Cases = []Case{
 		`{"a": [{}]}`,
 		`[ { "op": "add", "path": "/a/-1/b/c", "value": "hello" } ]`,
 		`{"a": [{"b": {"c": "hello"}}]}`,
-		false,
-		true,
-	},
-	{
-		`{"a": [{"b": "whatever"}]}`,
-		`[ { "op": "add", "path": "/a/2/b/c", "value": "hello" } ]`,
-		`{"a": [{"b": "whatever"}, null, {"b": {"c": "hello"}}]}`,
 		false,
 		true,
 	},
@@ -1244,4 +1231,68 @@ func init() {
 	_ = Operation{
 		"foo": &msg,
 	}
+}
+
+// TestEnsurePathExistsOnAddRejectsOutOfRangeIndex covers the array indices
+// EnsurePathExistsOnAdd creates a path for. RFC 6902, section 4.1 allows an
+// index at most equal to the number of elements in the array, and reaching a
+// larger one used to pad the array with nulls one element at a time. The cost
+// of that is chosen by the patch rather than bounded by its size: the last case
+// here is a 46 byte patch that allocated tens of gigabytes and ran for minutes
+// before it was rejected.
+func TestEnsurePathExistsOnAddRejectsOutOfRangeIndex(t *testing.T) {
+	options := NewApplyOptions()
+	options.EnsurePathExistsOnAdd = true
+
+	t.Run("rejected", func(t *testing.T) {
+		for _, c := range []struct{ name, doc, patch string }{
+			{"beyond a new array", `{}`,
+				`[ { "op": "add", "path": "/a/b/3", "value": "hello" } ]`},
+			{"beyond an existing array", `{"a": [{"b": "whatever"}]}`,
+				`[ { "op": "add", "path": "/a/2/b/c", "value": "hello" } ]`},
+			{"beyond an empty array", `{"a": []}`,
+				`[ { "op": "add", "path": "/a/1/b", "value": "hello" } ]`},
+			{"large index", `{}`,
+				`[ { "op": "add", "path": "/a/2000000000", "value": 1 } ]`},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				_, err := applyPatchWithOptions(c.doc, c.patch, options)
+				if !errors.Is(err, ErrInvalidIndex) {
+					t.Errorf("expected ErrInvalidIndex, got %v", err)
+				}
+			})
+		}
+	})
+
+	// Every index the array does reach still works.
+	t.Run("accepted", func(t *testing.T) {
+		for _, c := range []struct{ name, doc, patch, result string }{
+			{"first element of a new array", `{}`,
+				`[ { "op": "add", "path": "/a/0/b", "value": "hello" } ]`,
+				`{"a": [{"b": "hello"}]}`},
+			{"append to a new array", `{}`,
+				`[ { "op": "add", "path": "/a/-", "value": "hello" } ]`,
+				`{"a": ["hello"]}`},
+			{"at the length of an existing array", `{"a": [{"b": "whatever"}]}`,
+				`[ { "op": "add", "path": "/a/1/b/c", "value": "hello" } ]`,
+				`{"a": [{"b": "whatever"}, {"b": {"c": "hello"}}]}`},
+			{"inside an existing element", `{"a": [{}]}`,
+				`[ { "op": "add", "path": "/a/0/b/c", "value": "hello" } ]`,
+				`{"a": [{"b": {"c": "hello"}}]}`},
+			{"negative index", `{"a": []}`,
+				`[ { "op": "add", "path": "/a/-1", "value": "hello" } ]`,
+				`{"a": ["hello"]}`},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				out, err := applyPatchWithOptions(c.doc, c.patch, options)
+				if err != nil {
+					t.Fatalf("unable to apply patch: %s", err)
+				}
+				if !compareJSON(out, c.result) {
+					t.Errorf("patch did not apply. Expected:\n%s\n\nActual:\n%s",
+						reformatJSON(c.result), reformatJSON(out))
+				}
+			})
+		}
+	})
 }

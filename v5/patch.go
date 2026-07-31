@@ -848,16 +848,16 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 
 		if target == nil || ok != nil {
 
-			// If the current container is an array which has fewer elements than our target index,
-			// pad the current container with nulls.
+			// If the current container is an array, the index must be one the
+			// array already reaches. RFC 6902, section 4.1 allows an index at
+			// most equal to the number of elements, and padding the array with
+			// nulls to reach a larger one lets a patch of constant size choose
+			// how much memory and CPU this costs.
 			if arrIndex, err = strconv.Atoi(part); err == nil {
 				pa, ok := doc.(*partialArray)
 
 				if ok && arrIndex >= len(pa.nodes)+1 {
-					// Pad the array with null values up to the required index.
-					for i := len(pa.nodes); i <= arrIndex-1; i++ {
-						doc.add(strconv.Itoa(i), newLazyNode(newRawMessage(rawJSONNull)), options)
-					}
+					return fmt.Errorf("Unable to ensure path for out of range index: %d: %w", arrIndex, ErrInvalidIndex)
 				}
 			}
 
@@ -877,14 +877,16 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 					arrIndex = 0
 				}
 
+				// The array is created empty, so only its first element is
+				// reachable. Padding it with nulls to reach a larger index has
+				// the same unbounded cost as above.
+				if arrIndex > 0 {
+					return fmt.Errorf("Unable to ensure path for out of range index: %d: %w", arrIndex, ErrInvalidIndex)
+				}
+
 				newNode := newLazyNode(newRawMessage(rawJSONArray))
 				doc.add(part, newNode, options)
 				doc, _ = newNode.intoAry()
-
-				// Pad the new array with null values up to the required index.
-				for i := 0; i < arrIndex; i++ {
-					doc.add(strconv.Itoa(i), newLazyNode(newRawMessage(rawJSONNull)), options)
-				}
 			} else {
 				newNode := newLazyNode(newRawMessage(rawJSONObject))
 
