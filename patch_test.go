@@ -369,6 +369,15 @@ var BadCases = []BadCase{
 		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
 		`[ { "op": "move", "from": "/foo/1", "path": "/foo/4" } ]`,
 	},
+	// Missing value when targeting the whole document
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "replace", "path": "" } ]`,
+	},
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "add", "path": "" } ]`,
+	},
 }
 
 // This is not thread safe, so we cannot run patch tests in parallel.
@@ -501,6 +510,18 @@ var TestCases = []TestCase{
 		`[ { "op": "test", "path": "/foo"} ]`,
 		true,
 		"/foo",
+	},
+	{
+		`{ "baz": [] }`,
+		`[ { "op": "test", "path": ""} ]`,
+		false,
+		"",
+	},
+	{
+		`[ "baz" ]`,
+		`[ { "op": "test", "path": ""} ]`,
+		false,
+		"",
 	},
 }
 
