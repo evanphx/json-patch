@@ -570,6 +570,10 @@ func (p Patch) replace(doc *container, op Operation) error {
 	if path == "" {
 		val := op.value()
 
+		if val == nil {
+			return fmt.Errorf("replace operation missing value field: %w", ErrMissing)
+		}
+
 		if val.which == eRaw {
 			if !val.tryDoc() {
 				if !val.tryAry() {
@@ -666,6 +670,12 @@ func (p Patch) test(doc *container, op Operation) error {
 		case *partialArray:
 			self.ary = *sv
 			self.which = eAry
+		}
+
+		// A missing value is treated as null, and the whole document is
+		// never null.
+		if op.value() == nil {
+			return fmt.Errorf("testing value %s failed: %w", path, ErrTestFailed)
 		}
 
 		if self.equal(op.value()) {
