@@ -3,6 +3,7 @@ package jsonpatch
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -772,6 +773,17 @@ var BadCases = []BadCase{
 		`[{"op": "move", "path": "/qux", "from": ""}]`,
 		false,
 	},
+	// Missing value when targeting the whole document
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "replace", "path": "" } ]`,
+		true,
+	},
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "add", "path": "" } ]`,
+		true,
+	},
 }
 
 // This is not thread safe, so we cannot run patch tests in parallel.
@@ -948,6 +960,18 @@ var TestCases = []TestCase{
 		`[ { "op": "test", "path": "/baz", "value": null } ]`,
 		true,
 		"/baz",
+	},
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "test", "path": "" } ]`,
+		false,
+		"",
+	},
+	{
+		`[ "foo" ]`,
+		`[ { "op": "test", "path": "" } ]`,
+		false,
+		"",
 	},
 }
 
@@ -1243,5 +1267,30 @@ func init() {
 
 	_ = Operation{
 		"foo": &msg,
+	}
+}
+
+func TestMissingValueOnWholeDocument(t *testing.T) {
+	// DecodePatch rejects add and replace operations without a value, so
+	// build the patch directly to exercise the checks in Apply.
+	cases := []struct {
+		patch string
+		err   error
+	}{
+		{`[ { "op": "add", "path": "" } ]`, ErrMissing},
+		{`[ { "op": "replace", "path": "" } ]`, ErrMissing},
+		{`[ { "op": "test", "path": "" } ]`, ErrTestFailed},
+	}
+
+	for _, c := range cases {
+		var p Patch
+		if err := json.Unmarshal([]byte(c.patch), &p); err != nil {
+			t.Fatalf("Unable to unmarshal patch %q: %s", c.patch, err)
+		}
+
+		_, err := p.Apply([]byte(`{ "foo": "bar" }`))
+		if !errors.Is(err, c.err) {
+			t.Errorf("Patch %q: expected error %v, got %v", c.patch, c.err, err)
+		}
 	}
 }
