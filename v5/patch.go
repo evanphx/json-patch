@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 	"unicode"
@@ -344,6 +345,59 @@ func (n *lazyNode) isNull() bool {
 	return bytes.Equal(n.compact(), rawJSONNull)
 }
 
+// normalizeJSONNumber represents a compact JSON number as coefficient * 10^scale.
+// Only the scale uses arbitrary precision; the exponent is never expanded.
+func normalizeJSONNumber(raw []byte) (string, *big.Int, bool) {
+	if len(raw) == 0 || (raw[0] != '-' && (raw[0] < '0' || raw[0] > '9')) || !json.Valid(raw) {
+		return "", nil, false
+	}
+
+	number := string(raw)
+	negative := number[0] == '-'
+	if negative {
+		number = number[1:]
+	}
+
+	exponent := ""
+	if i := strings.IndexAny(number, "eE"); i >= 0 {
+		exponent = number[i+1:]
+		number = number[:i]
+	}
+
+	fractionalDigits := 0
+	if i := strings.IndexByte(number, '.'); i >= 0 {
+		fractionalDigits = len(number) - i - 1
+		number = number[:i] + number[i+1:]
+	}
+
+	number = strings.TrimLeft(number, "0")
+	if number == "" {
+		return "0", new(big.Int), true
+	}
+
+	coefficient := strings.TrimRight(number, "0")
+	scale := new(big.Int)
+	if exponent != "" {
+		if _, ok := scale.SetString(exponent, 10); !ok {
+			return "", nil, false
+		}
+	}
+	scale.Add(scale, big.NewInt(int64(len(number)-len(coefficient)-fractionalDigits)))
+	if negative {
+		coefficient = "-" + coefficient
+	}
+	return coefficient, scale, true
+}
+
+func equalJSONNumbers(a, b []byte) bool {
+	aCoefficient, aScale, ok := normalizeJSONNumber(a)
+	if !ok {
+		return false
+	}
+	bCoefficient, bScale, ok := normalizeJSONNumber(b)
+	return ok && aCoefficient == bCoefficient && aScale.Cmp(bScale) == 0
+}
+
 func (n *lazyNode) equal(o *lazyNode) bool {
 	if n.which == eRaw {
 		if !n.tryDoc() && !n.tryAry() {
@@ -371,7 +425,10 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 				return ns == os
 			}
 
-			return bytes.Equal(nc, oc)
+			if bytes.Equal(nc, oc) {
+				return true
+			}
+			return equalJSONNumbers(nc, oc)
 		}
 	}
 
