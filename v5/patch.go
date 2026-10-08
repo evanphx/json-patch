@@ -59,7 +59,6 @@ type Operation map[string]*json.RawMessage
 type Patch []Operation
 
 type partialDoc struct {
-	self *lazyNode
 	keys []string
 	obj  map[string]*lazyNode
 
@@ -67,7 +66,6 @@ type partialDoc struct {
 }
 
 type partialArray struct {
-	self  *lazyNode
 	nodes []*lazyNode
 }
 
@@ -600,10 +598,6 @@ func (d *partialDoc) add(key string, val *lazyNode, options *ApplyOptions) error
 }
 
 func (d *partialDoc) get(key string, options *ApplyOptions) (*lazyNode, error) {
-	if key == "" {
-		return d.self, nil
-	}
-
 	if d.obj == nil {
 		return nil, ErrExpectedObject
 	}
@@ -701,10 +695,6 @@ func (d *partialArray) add(key string, val *lazyNode, options *ApplyOptions) err
 }
 
 func (d *partialArray) get(key string, options *ApplyOptions) (*lazyNode, error) {
-	if key == "" {
-		return d.self, nil
-	}
-
 	idx, err := strconv.Atoi(key)
 
 	if err != nil {
@@ -777,12 +767,9 @@ func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {
 
 		var pd container
 		if (*val.raw)[0] == '[' {
-			pd = &partialArray{
-				self: val,
-			}
+			pd = &partialArray{}
 		} else {
 			pd = &partialDoc{
-				self: val,
 				opts: options,
 			}
 		}
@@ -1069,6 +1056,21 @@ func (p Patch) move(doc *container, op Operation, options *ApplyOptions) error {
 	return nil
 }
 
+func containerNode(doc container) *lazyNode {
+	var self lazyNode
+
+	switch sv := doc.(type) {
+	case *partialDoc:
+		self.doc = sv
+		self.which = eDoc
+	case *partialArray:
+		self.ary = sv
+		self.which = eAry
+	}
+
+	return &self
+}
+
 func (p Patch) test(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
@@ -1076,16 +1078,7 @@ func (p Patch) test(doc *container, op Operation, options *ApplyOptions) error {
 	}
 
 	if path == "" {
-		var self lazyNode
-
-		switch sv := (*doc).(type) {
-		case *partialDoc:
-			self.doc = sv
-			self.which = eDoc
-		case *partialArray:
-			self.ary = sv
-			self.which = eAry
-		}
+		self := containerNode(*doc)
 
 		if self.equal(op.value()) {
 			return nil
@@ -1135,9 +1128,14 @@ func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64, op
 		return fmt.Errorf("copy operation does not apply: doc is missing from path: \"%s\": %w", from, ErrMissing)
 	}
 
-	val, err := con.get(key, options)
-	if err != nil {
-		return fmt.Errorf("error in copy for from: '%s': %w", from, err)
+	var val *lazyNode
+	if from == "" {
+		val = containerNode(con)
+	} else {
+		val, err = con.get(key, options)
+		if err != nil {
+			return fmt.Errorf("error in copy for from: '%s': %w", from, err)
+		}
 	}
 
 	path, err := op.Path()
@@ -1227,17 +1225,11 @@ func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyO
 		return nil, ErrInvalid
 	}
 
-	raw := json.RawMessage(doc)
-	self := newLazyNode(&raw)
-
 	var pd container
 	if doc[0] == '[' {
-		pd = &partialArray{
-			self: self,
-		}
+		pd = &partialArray{}
 	} else {
 		pd = &partialDoc{
-			self: self,
 			opts: options,
 		}
 	}

@@ -613,6 +613,34 @@ var Cases = []Case{
 		false,
 		false,
 	},
+	{
+		`{"foo": 1}`,
+		`[{"op": "add", "path": "/qux", "value": 2}, {"op": "copy", "from": "", "path": "/bar"}]`,
+		`{"foo": 1, "qux": 2, "bar": {"foo": 1, "qux": 2}}`,
+		false,
+		false,
+	},
+	{
+		`{"": 1, "foo": 2}`,
+		`[{"op": "copy", "from": "/", "path": "/bar"}]`,
+		`{"": 1, "foo": 2, "bar": 1}`,
+		false,
+		false,
+	},
+	{
+		`{"": 1, "foo": 2}`,
+		`[{"op": "move", "from": "/", "path": "/bar"}]`,
+		`{"foo": 2, "bar": 1}`,
+		false,
+		false,
+	},
+	{
+		`{"": {"a": 1}, "a": 2}`,
+		`[{"op": "replace", "path": "//a", "value": 3}]`,
+		`{"": {"a": 3}, "a": 2}`,
+		false,
+		false,
+	},
 }
 
 type BadCase struct {
@@ -770,6 +798,11 @@ var BadCases = []BadCase{
 	{
 		`{ "foo": "bar"}`,
 		`[{"op": "move", "path": "/qux", "from": ""}]`,
+		false,
+	},
+	{
+		`{ "foo": "bar"}`,
+		`[{"op": "replace", "path": "/", "value": "qux"}]`,
 		false,
 	},
 }
@@ -948,6 +981,24 @@ var TestCases = []TestCase{
 		`[ { "op": "test", "path": "/baz", "value": null } ]`,
 		true,
 		"/baz",
+	},
+	{
+		`{ "": 1 }`,
+		`[ { "op": "test", "path": "/", "value": 1 } ]`,
+		true,
+		"",
+	},
+	{
+		`{ "": { "a": 1 }, "a": 2 }`,
+		`[ { "op": "test", "path": "//a", "value": 1 } ]`,
+		true,
+		"",
+	},
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "test", "path": "/", "value": { "foo": "bar" } } ]`,
+		false,
+		"/",
 	},
 }
 
