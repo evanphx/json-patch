@@ -345,6 +345,10 @@ func (n *lazyNode) isNull() bool {
 }
 
 func (n *lazyNode) equal(o *lazyNode) bool {
+	if n == nil || o == nil {
+		return n == o
+	}
+
 	if n.which == eRaw {
 		if !n.tryDoc() && !n.tryAry() {
 			if o.which != eRaw {
